@@ -1,0 +1,76 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "dotnet: restore",
+      "type": "shell",
+      "command": "dotnet",
+      "args": [
+        "restore"
+      ],
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "dotnet: build",
+      "type": "shell",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "-f",
+        "net10.0-windows"
+      ],
+      "group": "build",
+      "dependsOn": "dotnet: restore",
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "dotnet: run",
+      "type": "shell",
+      "command": "dotnet",
+      "args": [
+        "run",
+        "--project",
+        "${workspaceFolder}/ManualDoubleSidedPrinter.csproj",
+        "-f",
+        "net10.0-windows"
+      ],
+      "group": "test",
+      "dependsOn": "dotnet: build",
+      "problemMatcher": []
+    },
+    {
+      "label": "dotnet: publish win-x64",
+      "type": "shell",
+      "command": "dotnet",
+      "args": [
+        "publish",
+        "${workspaceFolder}/ManualDoubleSidedPrinter.csproj",
+        "-c",
+        "Release",
+        "-r",
+        "win-x64",
+        "--self-contained",
+        "true",
+        "-p:PublishSingleFile=true",
+        "-o",
+        "${workspaceFolder}/artifacts/win-x64"
+      ],
+      "group": "build",
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "package: installer",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/scripts/package-installer.ps1"
+      ],
+      "group": "build",
+      "problemMatcher": []
+    }
+  ]
+}

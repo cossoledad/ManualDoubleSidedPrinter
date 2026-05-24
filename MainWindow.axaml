@@ -1,0 +1,145 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        d:DesignWidth="1120"
+        d:DesignHeight="700"
+        x:Class="ManualDoubleSidedPrinter.MainWindow"
+        Title="ManualDoubleSidedPrinter"
+        Width="1120"
+        Height="700"
+        MinWidth="900"
+        MinHeight="560"
+        Background="#DCE6F2"
+        FontFamily="Segoe UI">
+    <Window.Styles>
+        <Style Selector="Border.panel">
+            <Setter Property="Background" Value="#EEF3FB"/>
+            <Setter Property="BorderBrush" Value="#7B9EBD"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="10"/>
+            <Setter Property="CornerRadius" Value="2"/>
+        </Style>
+        <Style Selector="Button.retro">
+            <Setter Property="Background">
+                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                    <GradientStop Offset="0" Color="#FFFFFF"/>
+                    <GradientStop Offset="1" Color="#D7E3F4"/>
+                </LinearGradientBrush>
+            </Setter>
+            <Setter Property="BorderBrush" Value="#6B8FB3"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="MinHeight" Value="30"/>
+        </Style>
+        <Style Selector="TextBlock.hint">
+            <Setter Property="Foreground" Value="#2E3A49"/>
+            <Setter Property="FontSize" Value="13"/>
+        </Style>
+    </Window.Styles>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <Grid Margin="12" RowDefinitions="Auto,Auto,*,Auto" RowSpacing="10">
+            <Border Grid.Row="0" BorderBrush="#5C7EA3" BorderThickness="1" Padding="10" CornerRadius="2">
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Offset="0" Color="#5C86B3"/>
+                        <GradientStop Offset="1" Color="#3A5F86"/>
+                    </LinearGradientBrush>
+                </Border.Background>
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                    <TextBlock Text="ManualDoubleSidedPrinter" Foreground="White" FontSize="22" FontWeight="Bold" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="1" Text="PDF" Foreground="#DDE9F6" VerticalAlignment="Center" FontWeight="Bold"/>
+                </Grid>
+            </Border>
+
+            <Border Grid.Row="1" Classes="panel">
+                <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="10" RowSpacing="8">
+                    <TextBlock Grid.Row="0" Text="PDF" VerticalAlignment="Center" FontWeight="Bold"/>
+                    <TextBox Grid.Row="0" Grid.Column="1" x:Name="PdfPathBox" IsReadOnly="True" PlaceholderText="请选择 PDF"/>
+                    <Button Grid.Row="0" Grid.Column="2" Classes="retro" Content="选择" Click="OnBrowsePdfClick" MinWidth="90"/>
+
+                    <TextBlock Grid.Row="1" Text="打印机" VerticalAlignment="Center" FontWeight="Bold"/>
+                    <ComboBox Grid.Row="1" Grid.Column="1" x:Name="PrinterCombo" PlaceholderText="请选择打印机" SelectionChanged="OnPrinterSelectionChanged"/>
+                    <Button Grid.Row="1" Grid.Column="2" Classes="retro" Content="刷新" Click="OnRefreshPrintersClick" MinWidth="90"/>
+
+                    <TextBlock Grid.Row="2" Text="操作" VerticalAlignment="Center" FontWeight="Bold"/>
+                    <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                        <Button x:Name="PrintFirstPassButton" Classes="retro" Content="打印第一遍" Click="OnPrintFirstPassClick" MinWidth="120"/>
+                        <Button x:Name="ConfirmFlipButton" Classes="retro" Content="已旋转" Click="OnConfirmFlipClick" MinWidth="90"/>
+                        <Button x:Name="PrintSecondPassButton" Classes="retro" Content="打印第二遍" Click="OnPrintSecondPassClick" MinWidth="120"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <Border Grid.Row="2" Classes="panel">
+                <Grid ColumnDefinitions="1.1*,0.9*" ColumnSpacing="14">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="步骤" FontWeight="Bold"/>
+                        <TextBlock x:Name="GuideStep1Text" Classes="hint" Text="1. 选择 PDF"/>
+                        <TextBlock x:Name="GuideStep2Text" Classes="hint" Text="2. 打印第一遍"/>
+                        <TextBlock x:Name="GuideStep3Text" Classes="hint" Text="3. 顺时针旋转180°回纸并打印第二遍"/>
+
+                        <Border BorderBrush="#93A8C0" BorderThickness="1" Padding="8" Background="#F7FAFF" CornerRadius="2">
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                <Border x:Name="StateBadge" Width="14" Height="14" CornerRadius="7" Background="#7C8A9A" VerticalAlignment="Center"/>
+                                <StackPanel Grid.Column="1" Spacing="2">
+                                    <TextBlock x:Name="StateTitleText" Text="等待PDF" FontWeight="Bold"/>
+                                    <TextBlock x:Name="StateHintText" Classes="hint" Text="选择文档后自动生成计划"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Border x:Name="Step1Indicator" Width="22" Height="22" CornerRadius="11" Background="#8FA2B7">
+                                <TextBlock Text="1" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="12" Foreground="White"/>
+                            </Border>
+                            <Border x:Name="Step2Indicator" Width="22" Height="22" CornerRadius="11" Background="#8FA2B7">
+                                <TextBlock Text="2" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="12" Foreground="White"/>
+                            </Border>
+                            <Border x:Name="Step3Indicator" Width="22" Height="22" CornerRadius="11" Background="#8FA2B7">
+                                <TextBlock Text="3" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="12" Foreground="White"/>
+                            </Border>
+                            <Border x:Name="Step4Indicator" Width="22" Height="22" CornerRadius="11" Background="#8FA2B7">
+                                <TextBlock Text="4" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="12" Foreground="White"/>
+                            </Border>
+                        </StackPanel>
+
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="计划" FontWeight="Bold"/>
+                            <TextBlock x:Name="PdfInfoText" Classes="hint" Text="未选择文档"/>
+                            <TextBlock x:Name="FirstPassText" Classes="hint" Text="第一遍：-" TextWrapping="Wrap"/>
+                            <TextBlock x:Name="SecondPassText" Classes="hint" Text="第二遍：-" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <Border Grid.Column="1" BorderBrush="#93A8C0" BorderThickness="1" Background="#F7FAFF" Padding="10" CornerRadius="2">
+                        <Grid RowDefinitions="Auto,*,Auto" RowSpacing="6">
+                            <TextBlock Text="引导动画" FontWeight="Bold"/>
+
+                            <Grid Grid.Row="1" Height="210" Background="#EAF1FB">
+                                <Border x:Name="AnimPrinter" Width="170" Height="64" Background="#5E7EA2" BorderBrush="#3F5D7E" BorderThickness="1" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,18" CornerRadius="3"/>
+                                <Border x:Name="AnimPrinterLight" Width="16" Height="16" CornerRadius="8" Background="#7F8C99" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,90,54"/>
+                                <Border x:Name="AnimPaper" Width="78" Height="102" Background="White" BorderBrush="#8299B3" BorderThickness="1" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,18,0,0">
+                                    <Border.RenderTransform>
+                                        <RotateTransform Angle="0"/>
+                                    </Border.RenderTransform>
+                                    <TextBlock Text="A" FontSize="42" FontWeight="Bold" Foreground="#2F4F70" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <TextBlock x:Name="AnimArrow" Text="▼" FontSize="30" Foreground="#3F5D7E" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,12,0,0"/>
+                                <TextBlock x:Name="AnimCheck" Text="√" FontSize="54" Foreground="#2E8B57" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="False"/>
+                            </Grid>
+
+                            <ProgressBar Grid.Row="2" x:Name="PrintProgress" IsIndeterminate="True" IsVisible="False" Height="8"/>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <Border Grid.Row="3" BorderBrush="#7B9EBD" BorderThickness="1" Padding="8" Background="#E8F0FB">
+                <TextBlock x:Name="StatusText" Foreground="#1E3A5C" Text="请选择 PDF"/>
+            </Border>
+        </Grid>
+    </ScrollViewer>
+</Window>
