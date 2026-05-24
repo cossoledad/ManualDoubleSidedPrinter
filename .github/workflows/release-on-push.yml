@@ -22,7 +22,10 @@ jobs:
           dotnet-version: 8.0.x
 
       - name: Install Inno Setup
-        run: choco install innosetup -y
+        shell: pwsh
+        run: |
+          choco install innosetup -y
+          choco list --local-only innosetup
 
       - name: Build Installer
         shell: pwsh

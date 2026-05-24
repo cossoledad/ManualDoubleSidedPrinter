@@ -13,15 +13,27 @@ if (-not (Test-Path $publishDir)) {
 }
 
 $possibleIscc = @(
+    "$Env:ChocolateyInstall\bin\ISCC.exe",
+    "$Env:ProgramData\chocolatey\bin\ISCC.exe",
     "$Env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe",
-    "$Env:ProgramFiles(x86)\Inno Setup 6\ISCC.exe",
+    "${Env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
     "$Env:ProgramFiles\Inno Setup 6\ISCC.exe"
 )
 
-$iscc = $possibleIscc | Where-Object { Test-Path $_ } | Select-Object -First 1
+$iscc = $possibleIscc | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
+
+if (-not $iscc) {
+    $isccCommand = Get-Command ISCC.exe -ErrorAction SilentlyContinue
+    if ($isccCommand) {
+        $iscc = $isccCommand.Source
+    }
+}
+
 if (-not $iscc) {
     throw 'Inno Setup 6 is not installed. Please install Inno Setup 6 and retry.'
 }
+
+Write-Host "Using ISCC: $iscc"
 
 if (-not (Test-Path $issFile)) {
     throw "Installer script missing: $issFile"
