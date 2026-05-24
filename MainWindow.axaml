@@ -7,6 +7,7 @@
         d:DesignHeight="700"
         x:Class="ManualDoubleSidedPrinter.MainWindow"
         Title="ManualDoubleSidedPrinter"
+        Icon="/Assets/app.ico"
         Width="1120"
         Height="700"
         MinWidth="900"
@@ -55,7 +56,7 @@
             </Border>
 
             <Border Grid.Row="1" Classes="panel">
-                <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="10" RowSpacing="8">
+                <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="10" RowSpacing="8">
                     <TextBlock Grid.Row="0" Text="PDF" VerticalAlignment="Center" FontWeight="Bold"/>
                     <TextBox Grid.Row="0" Grid.Column="1" x:Name="PdfPathBox" IsReadOnly="True" PlaceholderText="请选择 PDF"/>
                     <Button Grid.Row="0" Grid.Column="2" Classes="retro" Content="选择" Click="OnBrowsePdfClick" MinWidth="90"/>
@@ -64,8 +65,18 @@
                     <ComboBox Grid.Row="1" Grid.Column="1" x:Name="PrinterCombo" PlaceholderText="请选择打印机" SelectionChanged="OnPrinterSelectionChanged"/>
                     <Button Grid.Row="1" Grid.Column="2" Classes="retro" Content="刷新" Click="OnRefreshPrintersClick" MinWidth="90"/>
 
-                    <TextBlock Grid.Row="2" Text="操作" VerticalAlignment="Center" FontWeight="Bold"/>
+                    <TextBlock Grid.Row="2" Text="页码" VerticalAlignment="Center" FontWeight="Bold"/>
                     <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                        <ComboBox x:Name="PageModeCombo" Width="110" SelectedIndex="0" SelectionChanged="OnPageModeChanged">
+                            <ComboBoxItem Content="全部"/>
+                            <ComboBoxItem Content="自定义"/>
+                        </ComboBox>
+                        <TextBox x:Name="PageRangeBox" Width="260" IsEnabled="False" PlaceholderText="例如: 1-3,5,8-10"/>
+                        <Button x:Name="ApplyPageSelectionButton" Classes="retro" Content="应用" Click="OnApplyPageSelectionClick" MinWidth="70" IsEnabled="False"/>
+                    </StackPanel>
+
+                    <TextBlock Grid.Row="3" Text="操作" VerticalAlignment="Center" FontWeight="Bold"/>
+                    <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Spacing="8">
                         <Button x:Name="PrintFirstPassButton" Classes="retro" Content="打印第一遍" Click="OnPrintFirstPassClick" MinWidth="120"/>
                         <Button x:Name="ConfirmFlipButton" Classes="retro" Content="已旋转" Click="OnConfirmFlipClick" MinWidth="90"/>
                         <Button x:Name="PrintSecondPassButton" Classes="retro" Content="打印第二遍" Click="OnPrintSecondPassClick" MinWidth="120"/>

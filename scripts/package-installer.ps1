@@ -13,6 +13,7 @@ if (-not (Test-Path $publishDir)) {
 }
 
 $possibleIscc = @(
+    "$Env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe",
     "$Env:ProgramFiles(x86)\Inno Setup 6\ISCC.exe",
     "$Env:ProgramFiles\Inno Setup 6\ISCC.exe"
 )

@@ -17,21 +17,33 @@ public static class DuplexPlanner
             throw new ArgumentOutOfRangeException(nameof(totalPages), "Page count must be greater than 0.");
         }
 
-        var oddPages = Enumerable.Range(1, totalPages)
-            .Where(page => page % 2 == 1)
+        var pages = Enumerable.Range(1, totalPages).ToList();
+        return BuildForM126a(pages);
+    }
+
+    public static DuplexPlan BuildForM126a(IReadOnlyList<int> pages)
+    {
+        if (pages.Count <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(pages), "Page list must contain at least one item.");
+        }
+
+        var indexed = pages
+            .Select((page, index) => new { page, index })
             .ToList();
 
-        var evenPages = Enumerable.Range(1, totalPages)
-            .Where(page => page % 2 == 0)
+        var firstPass = indexed
+            .Where(item => item.index % 2 == 0)
+            .Select(item => item.page)
             .ToList();
 
-        var usesSecondPassLeadingBlank = totalPages > 1 && totalPages % 2 == 1;
-
-        var firstPass = oddPages;
-
-        var secondPass = evenPages
-            .OrderByDescending(page => page)
+        var secondPass = indexed
+            .Where(item => item.index % 2 == 1)
+            .Select(item => item.page)
+            .Reverse()
             .ToList();
+
+        var usesSecondPassLeadingBlank = pages.Count > 1 && pages.Count % 2 == 1;
         if (usesSecondPassLeadingBlank)
         {
             // Blank page marker(0) means "print blank on the first fed sheet in pass 2".

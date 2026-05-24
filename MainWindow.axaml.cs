@@ -22,6 +22,7 @@ public partial class MainWindow : Window
     private string? _pdfPath;
     private int _pageCount;
     private DuplexPlan? _currentPlan;
+    private IReadOnlyList<int> _selectedPages = Array.Empty<int>();
     private readonly DispatcherTimer _animationTimer;
     private int _animationFrame;
     private WorkflowState _state = WorkflowState.NeedPdf;
@@ -88,6 +89,11 @@ public partial class MainWindow : Window
         {
             _pageCount = PdfPageReader.ReadPageCount(localPath);
             _pdfPath = localPath;
+            _selectedPages = Enumerable.Range(1, _pageCount).ToList();
+            PageModeCombo.SelectedIndex = 0;
+            PageRangeBox.Text = string.Empty;
+            PageRangeBox.IsEnabled = false;
+            ApplyPageSelectionButton.IsEnabled = false;
 
             PdfPathBox.Text = _pdfPath;
             PdfInfoText.Text = $"文档页数：{_pageCount} 页";
@@ -109,17 +115,57 @@ public partial class MainWindow : Window
             return;
         }
 
-        var plan = DuplexPlanner.BuildForM126a(_pageCount);
+        if (_selectedPages.Count == 0)
+        {
+            SetStatus("页码为空", isError: true);
+            return;
+        }
+
+        var plan = DuplexPlanner.BuildForM126a(_selectedPages);
         _currentPlan = plan;
 
         FirstPassText.Text = $"第一次打印: {FormatPages(plan.FirstPassPages)}";
         SecondPassText.Text = $"第二次打印: {FormatPages(plan.SecondPassPages)}";
+        PdfInfoText.Text = $"文档页数：{_pageCount} 页  已选：{_selectedPages.Count} 页";
 
         GuideStep1Text.Text = $"1. 第一遍: {FormatPages(plan.FirstPassPages)}";
         GuideStep2Text.Text = "2. 整叠顺时针旋转180°回纸";
         GuideStep3Text.Text = $"3. 第二遍: {FormatPages(plan.SecondPassPages)}";
 
         SetStatus("计划已自动生成", isError: false);
+    }
+
+    private void OnPageModeChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        var isCustom = PageModeCombo.SelectedIndex == 1;
+        PageRangeBox.IsEnabled = isCustom;
+        ApplyPageSelectionButton.IsEnabled = isCustom;
+
+        if (!isCustom && _pageCount > 0)
+        {
+            _selectedPages = Enumerable.Range(1, _pageCount).ToList();
+            GeneratePlan();
+            SetWorkflowState(WorkflowState.ReadyFirstPass);
+        }
+    }
+
+    private void OnApplyPageSelectionClick(object? sender, RoutedEventArgs e)
+    {
+        if (_pageCount <= 0)
+        {
+            SetStatus("请先选择 PDF", isError: true);
+            return;
+        }
+
+        if (!PageSelectionParser.TryParse(PageRangeBox.Text, _pageCount, out var pages, out var error))
+        {
+            SetStatus(error ?? "页码格式错误", isError: true);
+            return;
+        }
+
+        _selectedPages = pages;
+        GeneratePlan();
+        SetWorkflowState(WorkflowState.ReadyFirstPass);
     }
 
     private void OnRefreshPrintersClick(object? sender, RoutedEventArgs e)
