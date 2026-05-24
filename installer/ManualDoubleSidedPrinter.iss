@@ -1,5 +1,5 @@
 #define MyAppName "ManualDoubleSidedPrinter"
-#define MyAppVersion "1.0.4"
+#define MyAppVersion "1.0.5"
 #define MyAppPublisher "ManualDoubleSidedPrinter"
 #define MyAppExeName "ManualDoubleSidedPrinter.exe"
 

@@ -27,6 +27,7 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _animationTimer;
     private int _animationFrame;
     private WorkflowState _state = WorkflowState.NeedPdf;
+    private bool _uiReady;
 
     public MainWindow()
     {
@@ -45,6 +46,7 @@ public partial class MainWindow : Window
 
         LoadPrinters();
         SetWorkflowState(WorkflowState.NeedPdf);
+        _uiReady = true;
     }
 
     private void TrySetWindowIcon()
@@ -153,6 +155,11 @@ public partial class MainWindow : Window
 
     private void OnPageModeChanged(object? sender, SelectionChangedEventArgs e)
     {
+        if (!_uiReady || PageModeCombo is null || PageRangeBox is null || ApplyPageSelectionButton is null)
+        {
+            return;
+        }
+
         var isCustom = PageModeCombo.SelectedIndex == 1;
         PageRangeBox.IsEnabled = isCustom;
         ApplyPageSelectionButton.IsEnabled = isCustom;
