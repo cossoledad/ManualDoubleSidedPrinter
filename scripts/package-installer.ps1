@@ -6,7 +6,7 @@ $installerOutDir = Join-Path $workspace 'artifacts\installer'
 $issFile = Join-Path $workspace 'installer\ManualDoubleSidedPrinter.iss'
 
 Write-Host 'Publishing win-x64 release payload...'
-dotnet publish "$workspace\ManualDoubleSidedPrinter.csproj" -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o "$publishDir"
+dotnet publish "$workspace\ManualDoubleSidedPrinter.csproj" -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -o "$publishDir"
 
 if (-not (Test-Path $publishDir)) {
     throw "Publish output directory missing: $publishDir"

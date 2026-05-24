@@ -1,10 +1,9 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform;
 
 namespace ManualDoubleSidedPrinter;
@@ -20,7 +19,7 @@ class Program
     public static void Main(string[] args)
     {
         InstallCrashLogging();
-        WriteLog("Application startup.");
+        WriteLog($"Application startup. OS={Environment.OSVersion}; Arch={RuntimeInformation.ProcessArchitecture}; Runtime={Environment.Version}");
 
         try
         {
@@ -30,6 +29,7 @@ class Program
         catch (Exception ex)
         {
             WriteLog($"Fatal startup exception: {ex}");
+            TryShowFatalDialog(ex);
             throw;
         }
     }
@@ -78,6 +78,28 @@ class Program
         catch
         {
             // Avoid crashing while writing diagnostics.
+        }
+    }
+
+    private static void TryShowFatalDialog(Exception ex)
+    {
+        try
+        {
+            var logPath = Path.Combine(Path.GetTempPath(), AppName, "startup.log");
+            var text =
+                "程序启动失败，请把日志发给开发者。" + Environment.NewLine +
+                $"日志路径: {logPath}" + Environment.NewLine +
+                ex.Message;
+
+            System.Windows.Forms.MessageBox.Show(
+                text,
+                AppName,
+                System.Windows.Forms.MessageBoxButtons.OK,
+                System.Windows.Forms.MessageBoxIcon.Error);
+        }
+        catch
+        {
+            // Ignore UI notification failures.
         }
     }
 }

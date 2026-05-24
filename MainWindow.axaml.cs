@@ -8,6 +8,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Platform;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using ManualDoubleSidedPrinter.Core;
@@ -30,6 +31,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        TrySetWindowIcon();
         var rotate = GetPaperRotate();
         rotate.CenterX = 39;
         rotate.CenterY = 51;
@@ -43,6 +45,20 @@ public partial class MainWindow : Window
 
         LoadPrinters();
         SetWorkflowState(WorkflowState.NeedPdf);
+    }
+
+    private void TrySetWindowIcon()
+    {
+        try
+        {
+            var iconUri = new Uri("avares://ManualDoubleSidedPrinter/Assets/app.ico");
+            using var stream = AssetLoader.Open(iconUri);
+            Icon = new WindowIcon(stream);
+        }
+        catch
+        {
+            // Ignore icon loading failures to avoid startup crash on target machines.
+        }
     }
 
     private async void OnBrowsePdfClick(object? sender, RoutedEventArgs e)

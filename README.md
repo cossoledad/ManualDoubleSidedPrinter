@@ -2,7 +2,7 @@
 
 基于 Avalonia 的 HPM126a 手动双面辅助工具（仅支持 PDF）。
 
-当前版本：1.0.2
+当前版本：1.0.4
 
 ## 功能
 
@@ -16,14 +16,15 @@
   - 选中页数为奇数时，第二次会自动插入空白占位页
 - 图形化步骤引导与旋转提示（顺时针旋转 180°）。
 - 每次打印前自动抽取并重排 PDF 为临时文件，再一次性发送到打印队列（非逐页慢速发送）。
+- 启动失败时会弹出错误提示，并指向 `%TEMP%/ManualDoubleSidedPrinter/startup.log` 方便排查。
 
 ## VS Code 快捷任务
 
 - `dotnet: run`：一键运行
 - `dotnet: build`：构建
-- `dotnet: publish win-x64`：发布 Windows 单文件
+- `dotnet: publish win-x64`：发布 Windows 自包含目录（兼容性优先）
 - `package: installer`：一键生成安装程序（需本机已安装 Inno Setup 6）
-- 目标框架：`net10.0-windows`
+- 目标框架：`net8.0-windows`
 
 ## 真实打印
 

@@ -18,7 +18,7 @@
       "args": [
         "build",
         "-f",
-        "net10.0-windows"
+        "net8.0-windows"
       ],
       "group": "build",
       "dependsOn": "dotnet: restore",
@@ -33,7 +33,7 @@
         "--project",
         "${workspaceFolder}/ManualDoubleSidedPrinter.csproj",
         "-f",
-        "net10.0-windows"
+        "net8.0-windows"
       ],
       "group": "test",
       "dependsOn": "dotnet: build",
@@ -52,7 +52,7 @@
         "win-x64",
         "--self-contained",
         "true",
-        "-p:PublishSingleFile=true",
+        "-p:PublishSingleFile=false",
         "-o",
         "${workspaceFolder}/artifacts/win-x64"
       ],

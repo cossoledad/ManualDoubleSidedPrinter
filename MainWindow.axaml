@@ -7,7 +7,6 @@
         d:DesignHeight="700"
         x:Class="ManualDoubleSidedPrinter.MainWindow"
         Title="ManualDoubleSidedPrinter"
-        Icon="/Assets/app.ico"
         Width="1120"
         Height="700"
         MinWidth="900"
