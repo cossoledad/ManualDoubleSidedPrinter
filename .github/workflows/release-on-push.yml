@@ -8,6 +8,9 @@ on:
 permissions:
   contents: write
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build-release:
     runs-on: windows-latest
@@ -25,7 +28,6 @@ jobs:
         shell: pwsh
         run: |
           choco install innosetup -y
-          choco list --local-only innosetup
 
       - name: Build Installer
         shell: pwsh
