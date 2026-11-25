@@ -1,6 +1,8 @@
 # MDSPrinter
 
-面向 HP LaserJet Pro MFP M126a 的 Windows 手动双面打印工具。使用 C++20、Win32 原生控件、Conan 2 和 CMake。应用通过 Windows 自带的 PDF 引擎渲染文档，发行版为单个 `.exe`。
+面向 HP LaserJet Pro MFP M126a 的手动双面打印工具。Windows 桌面版使用 C++20、Win32、Conan 2 和 CMake。Web 版部署在连接打印机的 Ubuntu ARM64 主机，手机和电脑可通过局域网在浏览器上传、预览和打印 PDF。
+
+GitHub Release 提供 Windows 安装包、便携 ZIP 和 Ubuntu ARM64 Web 包。Web 版默认端口为 `30128`，见 [部署说明](web/README.md)。
 
 ## 使用
 

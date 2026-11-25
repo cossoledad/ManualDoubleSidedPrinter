@@ -6,14 +6,16 @@ on:
       - main
 
 permissions:
-  contents: write
+  contents: read
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  build-release:
+  windows:
     runs-on: windows-2025
+    outputs:
+      version: ${{ steps.version.outputs.value }}
 
     steps:
       - uses: actions/checkout@v4
@@ -40,12 +42,52 @@ jobs:
           $version = (Get-Item ./artifacts/publish/win-x64/ManualDoubleSidedPrinter.exe).VersionInfo.ProductVersion
           "value=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-release
+          path: artifacts/installer/*
+          if-no-files-found: error
+
+  web-arm64:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Test PDF processing
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qpdf poppler-utils
+          MDS_TEST_PDF=1 node --test web/test/*.test.mjs
+      - name: Package Linux ARM64
+        run: sh scripts/package-web.sh
+      - name: Smoke test the release package on ARM64
+        run: |
+          mkdir -p "$RUNNER_TEMP/mds-smoke"
+          tar -xJf artifacts/web/*.tar.xz -C "$RUNNER_TEMP/mds-smoke"
+          MDS_TEST_PACKAGE="$RUNNER_TEMP/mds-smoke/mdsprinter-web/start.sh" node --test web/test/package.test.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-arm64-release
+          path: artifacts/web/*
+          if-no-files-found: error
+
+  publish:
+    needs: [windows, web-arm64]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release
+          merge-multiple: true
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ci-${{ github.run_id }}
-          name: MDSPrinter v${{ steps.version.outputs.value }} (${{ github.sha }})
+          name: MDSPrinter v${{ needs.windows.outputs.version }} (${{ github.sha }})
           generate_release_notes: true
-          files: |
-            artifacts/installer/*.exe
-            artifacts/installer/*.zip
+          files: release/*
+          fail_on_unmatched_files: true

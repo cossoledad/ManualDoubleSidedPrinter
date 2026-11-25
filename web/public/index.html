@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f4ef">
+  <title>MDSPrinter</title>
+  <link rel="stylesheet" href="/style.css">
+  <script type="module" src="/app.mjs"></script>
+</head>
+<body>
+  <header class="masthead">
+    <a href="/" aria-label="MDSPrinter 首页">MDSPrinter</a>
+    <span>手动双面打印</span>
+  </header>
+
+  <main>
+    <section class="controls" aria-label="打印设置">
+      <div class="document">
+        <div><h1>选择文档</h1><p id="file-name">PDF，最大 50 MiB</p></div>
+        <button id="choose" type="button">选择 PDF</button>
+        <input id="file" type="file" accept="application/pdf,.pdf" hidden>
+      </div>
+
+      <form id="range-form">
+        <label for="range">页码范围</label>
+        <div class="input-row">
+          <input id="range" type="text" placeholder="全部，例如 1-3,5" maxlength="1024" autocomplete="off" disabled>
+          <button id="apply" type="submit" disabled>应用</button>
+        </div>
+      </form>
+
+      <div class="destination">
+        <label for="mode">打印到</label>
+        <select id="mode" disabled>
+          <option value="print">CUPS 打印机</option>
+          <option value="simulate">模拟打印（不出纸）</option>
+        </select>
+      </div>
+
+      <dl id="plan" class="plan" hidden>
+        <div><dt>第一遍</dt><dd id="first-pages"></dd></div>
+        <div><dt>第二遍</dt><dd id="second-pages"></dd></div>
+      </dl>
+
+      <div id="guide" class="guide" hidden>
+        <div class="guide-picture" aria-hidden="true">
+          <div class="tray"><span class="static-sheet sheet"></span></div>
+          <span class="rotation">↻</span>
+          <div class="tray"><span class="static-sheet sheet flipped"></span></div>
+          <span class="moving-sheet sheet"></span>
+        </div>
+        <div class="tray-labels"><span>出纸托盘</span><span>进纸盘</span></div>
+        <p>保持印刷面朝向，整叠顺时针旋转 180°，再放回进纸盘。</p>
+      </div>
+
+      <div class="actions">
+        <p id="status" class="status" role="status" aria-live="polite">选择 PDF 后即可预览。</p>
+        <div class="action-row">
+          <button id="print" class="primary" type="button" disabled>打印第一遍</button>
+          <button id="abandon" type="button" hidden>结束任务</button>
+          <button id="resume" type="button" hidden>接续打印</button>
+          <button id="reload" type="button" hidden>刷新状态</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="preview" aria-labelledby="preview-heading">
+      <div class="preview-top">
+        <h2 id="preview-heading">PDF 预览</h2>
+        <div class="views" role="group" aria-label="预览顺序">
+          <button type="button" data-view="original" aria-pressed="true" disabled>原文</button>
+          <button type="button" data-view="first" aria-pressed="false" disabled>第一遍</button>
+          <button type="button" data-view="second" aria-pressed="false" disabled>第二遍</button>
+        </div>
+      </div>
+      <div class="viewport" id="viewport">
+        <p id="preview-note">尚未选择文档</p>
+        <img id="preview-image" alt="PDF 页面" hidden>
+        <div id="blank-page" class="blank-page" hidden>空白占位</div>
+        <button id="retry-preview" type="button" hidden>重新加载预览</button>
+      </div>
+      <div class="pagination">
+        <button type="button" id="previous" disabled>上一页</button>
+        <span id="page-label" aria-live="polite">—</span>
+        <button type="button" id="next" disabled>下一页</button>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
