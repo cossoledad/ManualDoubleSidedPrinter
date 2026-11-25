@@ -4,7 +4,7 @@ if(POLICY CMP0141)
     cmake_policy(SET CMP0141 NEW)
 endif()
 
-project(ManualDoubleSidedPrinter VERSION 2.0.1 LANGUAGES CXX)
+project(ManualDoubleSidedPrinter VERSION 3.0.0 LANGUAGES CXX)
 
 option(MDSP_BUILD_APP "Build the Windows desktop application" ${WIN32})
 include(CTest)

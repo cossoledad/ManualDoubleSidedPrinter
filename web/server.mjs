@@ -10,6 +10,7 @@ const maxPdf = 50 * 1024 * 1024;
 const assetTypes = new Map([
   ['/', ['index.html', 'text/html; charset=utf-8']],
   ['/app.mjs', ['app.mjs', 'text/javascript; charset=utf-8']],
+  ['/viewport.mjs', ['viewport.mjs', 'text/javascript; charset=utf-8']],
   ['/style.css', ['style.css', 'text/css; charset=utf-8']],
 ]);
 const securityHeaders = {
@@ -43,39 +44,47 @@ function allowMutation(request) {
 
 async function parseJson(request) {
   if (request.headers['content-type']?.split(';')[0] !== 'application/json') {
-    throw new HttpError(415, '请求格式无效。');
+    throw new HttpError(415, '�����ʽ��Ч��');
   }
   let bytes = 0;
   const chunks = [];
   for await (const chunk of request.iterator({ destroyOnReturn: false })) {
     bytes += chunk.length;
-    if (bytes > 2048) throw new HttpError(413, '请求过大。');
+    if (bytes > 2048) throw new HttpError(413, '�������');
     chunks.push(chunk);
   }
   try {
     const data = JSON.parse(Buffer.concat(chunks).toString('utf8'));
     if (data === null || typeof data !== 'object' || Array.isArray(data)) throw new Error();
     return data;
-  } catch { throw new HttpError(400, '请求格式无效。'); }
+  } catch { throw new HttpError(400, '�����ʽ��Ч��'); }
 }
 
 function fileName(request) {
-  try { return decodeURIComponent(request.headers['x-file-name'] ?? '').trim().slice(0, 180) || '文档.pdf'; }
-  catch { return '文档.pdf'; }
+  try { return decodeURIComponent(request.headers['x-file-name'] ?? '').trim().slice(0, 180) || '�ĵ�.pdf'; }
+  catch { return '�ĵ�.pdf'; }
 }
 
-function publicJob({ id, name, count, range, plan, revision, stage, mode, queue, pendingPass }) {
-  return { id, name, count, range, plan, revision, stage, mode, queue, pendingPass };
+function publicJob({ id, name, count, range, plan, revision, stage, mode, printer, queue, pendingPass }) {
+  return { id, name, count, range, plan, revision, stage, mode, printer, queue, pendingPass };
 }
 
 export async function createApplication({ root, printer = '', hostname = '', backend = printing }) {
-  const jobs = new Jobs(root, printer, backend);
+  const jobs = new Jobs(root, backend);
   await jobs.load();
   let rendering = 0;
+  let discovery;
+
+  function discover() {
+    discovery ??= backend.listPrinters().then(({ printers, defaultPrinter }) => ({
+      printers, defaultPrinter: printers.some((queue) => queue.name === printer && queue.accepting) ? printer : defaultPrinter,
+    })).catch(() => ({ printers: [], defaultPrinter: '', printerError: true })).finally(() => { discovery = undefined; });
+    return discovery;
+  }
 
   async function handle(request, response) {
     try {
-      if (!allowHost(request, hostname.toLowerCase())) throw new HttpError(403, '请使用局域网 IP 或已配置的主机名访问。');
+      if (!allowHost(request, hostname.toLowerCase())) throw new HttpError(403, '��ʹ�þ����� IP �������õ����������ʡ�');
       const { pathname } = new URL(request.url, 'http://localhost');
       const { method } = request;
       if (method === 'GET' && assetTypes.has(pathname)) {
@@ -83,51 +92,54 @@ export async function createApplication({ root, printer = '', hostname = '', bac
         return send(response, 200, await readFile(new URL(`./public/${file}`, import.meta.url)), type);
       }
       if (method === 'GET' && pathname === '/api/config') {
-        return send(response, 200, { printer, activeId: jobs.activeId, maxUploadMiB: maxPdf / 1024 ** 2 });
+        return send(response, 200, { ...await discover(), activeJobs: jobs.activeJobs, maxUploadMiB: maxPdf / 1024 ** 2 });
       }
-      if (method === 'POST' && !allowMutation(request)) throw new HttpError(403, '请求来源无效。');
+      if (method === 'POST' && !allowMutation(request)) throw new HttpError(403, '������Դ��Ч��');
       if (method === 'POST' && pathname === '/api/jobs') {
-        if (request.headers['content-type']?.split(';')[0] !== 'application/pdf') throw new HttpError(415, '请选择 PDF 文件。');
-        if (Number(request.headers['content-length']) > maxPdf) throw new HttpError(413, 'PDF 超过 50 MiB。');
+        if (request.headers['content-type']?.split(';')[0] !== 'application/pdf') throw new HttpError(415, '��ѡ�� PDF �ļ���');
+        if (Number(request.headers['content-length']) > maxPdf) throw new HttpError(413, 'PDF ���� 50 MiB��');
         return send(response, 201, publicJob(await jobs.upload(request, fileName(request), maxPdf)));
       }
 
       const [, api, resource, id, action, page, rest] = pathname.split('/');
       if (api !== 'api' || resource !== 'jobs' || !jobIdPattern.test(id) || rest !== undefined) {
-        throw new HttpError(404, '请求的页面不存在。');
+        throw new HttpError(404, '�����ҳ�治���ڡ�');
       }
       if (method === 'GET' && action === undefined) return send(response, 200, publicJob(jobs.get(id)));
       if (method === 'GET' && action === 'preview' && /^\d{1,3}$/.test(page)) {
         const number = Number(page);
-        if (number < 1 || number > jobs.get(id).count) throw new HttpError(404, '这一页不存在。');
-        if (rendering >= 2) throw new HttpError(429, '预览正在处理，请稍后重试。');
+        if (number < 1 || number > jobs.get(id).count) throw new HttpError(404, '��һҳ�����ڡ�');
+        if (rendering >= 2) throw new HttpError(429, 'Ԥ�����ڴ��������Ժ����ԡ�');
         rendering += 1;
         try {
           const png = await backend.renderPage(jobs.file(id), number);
           return send(response, 200, png, 'image/png', { 'cache-control': 'private, max-age=600' });
         } catch (error) {
           console.error(`Preview (${id}): ${error.message}`);
-          throw new HttpError(503, '无法生成预览，请重试。');
+          throw new HttpError(503, '�޷�����Ԥ���������ԡ�');
         } finally { rendering -= 1; }
       }
       if (method === 'POST' && page === undefined) {
         if (action === 'abandon') return send(response, 200, publicJob(await jobs.abandon(id)));
         if (action === 'range') {
           const { range, revision } = await parseJson(request);
-          if (typeof range !== 'string' || range.length > 1024) throw new HttpError(400, '页码格式无效。');
+          if (typeof range !== 'string' || range.length > 1024) throw new HttpError(400, 'ҳ���ʽ��Ч��');
           return send(response, 200, publicJob(await jobs.range(id, range, revision)));
         }
         if (action === 'print') {
-          const { pass, mode, revision } = await parseJson(request);
-          if (![1, 2].includes(pass) || !['print', 'simulate'].includes(mode)) throw new HttpError(400, '请选择打印方式。');
-          return send(response, 200, publicJob(await jobs.print(id, { pass, mode, revision })));
+          const { pass, mode, revision, printer: selected } = await parseJson(request);
+          if (![1, 2].includes(pass) || !['print', 'simulate'].includes(mode)) throw new HttpError(400, '��ѡ���ӡ��ʽ��');
+          if (selected !== undefined && (typeof selected !== 'string' || selected.length > 255)) {
+            throw new HttpError(400, '��ӡ��������Ч��');
+          }
+          return send(response, 200, publicJob(await jobs.print(id, { pass, mode, revision, printer: selected })));
         }
       }
-      throw new HttpError(404, '请求的页面不存在。');
+      throw new HttpError(404, '�����ҳ�治���ڡ�');
     } catch (error) {
       if (!(error instanceof HttpError)) console.error(error);
       if (!response.destroyed && !response.headersSent) {
-        send(response, error.status ?? 500, { error: error.status ? error.message : '服务暂时不可用，请稍后重试。' },
+        send(response, error.status ?? 500, { error: error.status ? error.message : '������ʱ�����ã����Ժ����ԡ�' },
           undefined, { connection: 'close' });
       }
     }
@@ -146,7 +158,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     printer, hostname: process.env.MDS_HOSTNAME,
   });
   const server = createServer({ headersTimeout: 15_000, requestTimeout: 120_000 }, app.handle);
-  server.listen(port, host, () => console.log(`MDSPrinter listening on ${host}:${port} (${printer || 'simulation only'})`));
+  server.listen(port, host, () => console.log(`MDSPrinter listening on ${host}:${port}`));
   const sweep = setInterval(() => app.sweep().catch(console.error), 60 * 60 * 1000);
   sweep.unref();
   process.on('SIGTERM', () => server.close());

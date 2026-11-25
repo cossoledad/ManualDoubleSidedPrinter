@@ -20,7 +20,7 @@ tar -xJf "$temp/node.tar.xz" -C "$temp" "$node_release/bin/node" "$node_release/
 stage="$temp/$name"
 mkdir -p "$stage/bin" "$output"
 install -m 755 "$temp/$node_release/bin/node" "$stage/bin/node"
-install -m 755 "$root/web/start.sh" "$stage/start.sh"
+install -m 755 "$root/web/start.sh" "$root/web/install.sh" "$stage/"
 cp "$temp/$node_release/LICENSE" "$stage/NODE-LICENSE"
 cp "$root/web/duplex.mjs" "$root/web/jobs.mjs" "$root/web/printing.mjs" "$root/web/server.mjs" \
   "$root/web/mdsprinter-web.service" "$root/web/README.md" "$stage/"

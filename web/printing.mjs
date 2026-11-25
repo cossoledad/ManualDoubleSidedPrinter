@@ -16,6 +16,23 @@ async function run(command, args, options = {}) {
   });
 }
 
+export function parsePrinters(queues, defaultOutput) {
+  const printers = [];
+  for (const line of queues.split(/\r?\n/)) {
+    const match = /^(\S+) (not )?accepting requests(?:\s|$)/.exec(line);
+    if (match) printers.push({ name: match[1], accepting: !match[2] });
+  }
+  return { printers, defaultPrinter: /^system default destination:\s*(\S+)/m.exec(defaultOutput)?.[1] ?? '' };
+}
+
+export async function listPrinters() {
+  const [queues, defaultQueue] = await Promise.all([
+    run('lpstat', ['-a'], { timeout: 4000 }),
+    run('lpstat', ['-d'], { timeout: 4000 }).catch(() => ({ stdout: '' })),
+  ]);
+  return parsePrinters(queues.stdout, defaultQueue.stdout);
+}
+
 export async function countPages(file) {
   const { stdout } = await run('qpdf', ['--warning-exit-0', '--show-npages', file]);
   const count = Number(stdout.trim());

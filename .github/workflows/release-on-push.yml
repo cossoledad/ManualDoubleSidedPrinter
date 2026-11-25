@@ -57,8 +57,9 @@ jobs:
           node-version: '24'
       - name: Test PDF processing
         run: |
+          sh -n web/install.sh
           sudo apt-get update
-          sudo apt-get install -y qpdf poppler-utils
+          sudo apt-get install -y cups-client qpdf poppler-utils
           MDS_TEST_PDF=1 node --test web/test/*.test.mjs
       - name: Package Linux ARM64
         run: sh scripts/package-web.sh
@@ -67,6 +68,16 @@ jobs:
           mkdir -p "$RUNNER_TEMP/mds-smoke"
           tar -xJf artifacts/web/*.tar.xz -C "$RUNNER_TEMP/mds-smoke"
           MDS_TEST_PACKAGE="$RUNNER_TEMP/mds-smoke/mdsprinter-web/start.sh" node --test web/test/package.test.mjs
+      - name: Verify one-command installation and upgrade
+        run: |
+          installer="$RUNNER_TEMP/mds-smoke/mdsprinter-web/install.sh"
+          sudo "$installer"
+          curl --retry 5 --retry-connrefused -fsS http://127.0.0.1:30128/api/config
+          sudo chmod 640 /etc/mdsprinter-web.env
+          sudo "$installer"
+          test "$(stat -c %a /etc/mdsprinter-web.env)" = 640
+          curl --retry 5 --retry-connrefused -fsS http://127.0.0.1:30128/api/config
+          sudo systemctl stop mdsprinter-web
       - uses: actions/upload-artifact@v4
         with:
           name: web-arm64-release

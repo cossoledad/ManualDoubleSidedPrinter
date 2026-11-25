@@ -4,13 +4,15 @@ Wants=network-online.target
 After=network-online.target cups.service
 
 [Service]
-Type=simple
+Type=exec
 DynamicUser=yes
 StateDirectory=mdsprinter-web
 Environment=MDS_DATA=/var/lib/mdsprinter-web
-EnvironmentFile=/etc/mdsprinter-web.env
+EnvironmentFile=-/etc/mdsprinter-web.env
 ExecStart=/opt/mdsprinter-web/start.sh
 Restart=on-failure
+KillMode=mixed
+TimeoutStopSec=180
 UMask=0077
 
 [Install]

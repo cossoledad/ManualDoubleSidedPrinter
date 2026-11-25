@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { access, mkdtemp, rm } from 'node:fs/promises';
+import { constants } from 'node:fs';
 import { once } from 'node:events';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { numberedPdf } from './fixtures.mjs';
 
@@ -12,6 +13,7 @@ const executable = process.env.MDS_TEST_PACKAGE;
 test('packaged ARM64 runtime serves the site, PDF previews and simulation over HTTP', {
   skip: !executable, timeout: 20_000,
 }, async (t) => {
+  await access(join(dirname(executable), 'install.sh'), constants.X_OK);
   const data = await mkdtemp(join(tmpdir(), 'mds-package-test-'));
   const port = '30128';
   const server = spawn(executable, [], {

@@ -16,12 +16,6 @@ namespace {
 
 constexpr auto preview_class = L"MDSPrinter.Preview";
 
-double clamp_offset(double offset, long paper, long viewport)
-{
-    const double limit = std::max(0.0, (paper - viewport) / (2.0 * paper));
-    return std::clamp(offset, -limit, limit);
-}
-
 void draw_bitmap(HDC dc, const RECT& target, const PageBitmap& bitmap)
 {
     BITMAPINFO info{};
@@ -56,11 +50,11 @@ HWND PdfPreview::create(HWND parent, HINSTANCE instance)
     info.hCursor = LoadCursorW(nullptr, IDC_ARROW);
     info.lpszClassName = preview_class;
     if (!RegisterClassW(&info) && GetLastError() != ERROR_CLASS_ALREADY_EXISTS) {
-        windows_error(L"无法注册预览窗口");
+        windows_error(L"�޷�ע��Ԥ������");
     }
-    if (!CreateWindowExW(0, preview_class, L"PDF 页面预览", WS_CHILD | WS_VISIBLE | WS_GROUP,
+    if (!CreateWindowExW(0, preview_class, L"PDF ҳ��Ԥ��", WS_CHILD | WS_VISIBLE | WS_GROUP,
         0, 0, 0, 0, parent, nullptr, instance, this)) {
-        windows_error(L"无法创建预览窗口");
+        windows_error(L"�޷�����Ԥ������");
     }
     return window_;
 }
@@ -185,7 +179,7 @@ SIZE PdfPreview::paper_size(RECT canvas) const
 
 bool PdfPreview::can_pan() const
 {
-    return zoom_ > 1 && (bitmap_ || requested_.page == blank_page);
+    return bitmap_.has_value() || requested_.page == blank_page;
 }
 
 void PdfPreview::zoom_at(POINT anchor, double change)
@@ -200,14 +194,12 @@ void PdfPreview::zoom_at(POINT anchor, double change)
     if (IsRectEmpty(&client)) { return; }
 
     const auto old = paper_size(client);
-    const auto width = client.right - client.left;
-    const auto height = client.bottom - client.top;
     const double x = anchor.x - (client.left + client.right) / 2.0;
     const double y = anchor.y - (client.top + client.bottom) / 2.0;
-    zoom_ = std::clamp(zoom_ * change, 1.0, 4.0);
+    zoom_ = std::clamp(zoom_ * change, 0.5, 4.0);
     const auto next = paper_size(client);
-    offset_x_ = clamp_offset(clamp_offset(offset_x_, old.cx, width) + x / next.cx - x / old.cx, next.cx, width);
-    offset_y_ = clamp_offset(clamp_offset(offset_y_, old.cy, height) + y / next.cy - y / old.cy, next.cy, height);
+    offset_x_ += x / next.cx - x / old.cx;
+    offset_y_ += y / next.cy - y / old.cy;
     invalidate();
 }
 
@@ -219,12 +211,10 @@ void PdfPreview::pan(POINT point)
     InflateRect(&client, -inset, -inset);
     if (!IsRectEmpty(&client)) {
         const auto paper = paper_size(client);
-        const auto width = client.right - client.left;
-        const auto height = client.bottom - client.top;
         const double dx = static_cast<double>(point.x - drag_->x) / paper.cx;
         const double dy = static_cast<double>(point.y - drag_->y) / paper.cy;
-        offset_x_ = clamp_offset(clamp_offset(offset_x_, paper.cx, width) + dx, paper.cx, width);
-        offset_y_ = clamp_offset(clamp_offset(offset_y_, paper.cy, height) + dy, paper.cy, height);
+        offset_x_ += dx;
+        offset_y_ += dy;
         invalidate();
     }
     drag_ = point;
@@ -308,8 +298,14 @@ void PdfPreview::draw(HDC dc, RECT bounds, int padding) const
         const auto size = paper_size(bounds);
         const auto width = bounds.right - bounds.left;
         const auto height = bounds.bottom - bounds.top;
-        const long left = bounds.left + (width - size.cx) / 2 + std::lround(clamp_offset(offset_x_, size.cx, width) * size.cx);
-        const long top = bounds.top + (height - size.cy) / 2 + std::lround(clamp_offset(offset_y_, size.cy, height) * size.cy);
+        const double x = bounds.left + (width - size.cx) / 2.0 + offset_x_ * size.cx;
+        const double y = bounds.top + (height - size.cy) / 2.0 + offset_y_ * size.cy;
+        if (x >= frame.right || y >= frame.bottom || x + size.cx + 2 <= frame.left || y + size.cy + 3 <= frame.top) {
+            RestoreDC(dc, state);
+            return;
+        }
+        const long left = std::lround(x);
+        const long top = std::lround(y);
         RECT paper{left, top, left + size.cx, top + size.cy};
         RECT shadow = paper;
         OffsetRect(&shadow, 2, 3);
@@ -318,19 +314,19 @@ void PdfPreview::draw(HDC dc, RECT bounds, int padding) const
         if (bitmap_) {
             draw_bitmap(dc, paper, *bitmap_);
         } else {
-            draw_message(dc, paper, L"空白占位", RGB(76, 91, 111));
+            draw_message(dc, paper, L"�հ�ռλ", RGB(76, 91, 111));
         }
         RestoreDC(dc, state);
         return;
     }
 
-    const wchar_t* message = L"正在渲染页面…";
+    const wchar_t* message = L"������Ⱦҳ�桭";
     if (!requested_.document) {
-        message = L"尚未打开 PDF";
+        message = L"��δ�� PDF";
     } else if (!requested_.page) {
-        message = L"当前没有可预览的打印页";
+        message = L"��ǰû�п�Ԥ���Ĵ�ӡҳ";
     } else if (failed_) {
-        message = L"无法渲染此页";
+        message = L"�޷���Ⱦ��ҳ";
     }
     draw_message(dc, bounds, message, GetSysColor(COLOR_BTNTEXT));
 }
