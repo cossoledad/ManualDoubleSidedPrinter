@@ -26,8 +26,8 @@ test('C++ desktop page order cases and selection syntax', () => {
   assert.deepEqual(planPages('', 1), { first: [1], second: [] });
   assert.deepEqual(planPages('all', 6), { first: [1, 3, 5], second: [6, 4, 2] });
   assert.deepEqual(planPages('', 5), { first: [1, 3, 5], second: [0, 4, 2] });
-  assert.deepEqual(planPages('2, 4-5��8,10,5', 10), { first: [2, 5, 10], second: [0, 8, 4] });
-  for (const input of ['2--3', '3-2', '1-6', '2147483648', ',��']) assert.throws(() => planPages(input, 5), RangeError);
+  assert.deepEqual(planPages('2, 4-5，8,10,5', 10), { first: [2, 5, 10], second: [0, 8, 4] });
+  for (const input of ['2--3', '3-2', '1-6', '2147483648', ',，']) assert.throws(() => planPages(input, 5), RangeError);
 });
 
 test('CUPS default printer and queues are discovered from status output', () => {
@@ -63,7 +63,7 @@ test('upload, preview, simulated and real passes, duplicate requests, recovery a
   };
   const options = { root, printer: 'queue', backend };
   let app = await createApplication(options);
-  const upload = () => request(app, '/api/jobs', pdf, { 'x-file-name': encodeURIComponent('����.pdf') });
+  const upload = () => request(app, '/api/jobs', pdf, { 'x-file-name': encodeURIComponent('测试.pdf') });
   assert.equal((await request(app, '/')).status, 200);
   assert.equal((await request(app, '/viewport.mjs')).status, 200);
   assert.equal((await request(app, '/api/config')).body.defaultPrinter, 'queue');
@@ -76,7 +76,7 @@ test('upload, preview, simulated and real passes, duplicate requests, recovery a
   const base = `/api/jobs/${id}`;
   const pass = (n, mode = 'print', version = revision, url = base, printer = 'queue') =>
     request(app, `${url}/print`, { pass: n, mode, revision: version, printer: mode === 'print' ? printer : undefined });
-  assert.equal(initial.body.name, '����.pdf');
+  assert.equal(initial.body.name, '测试.pdf');
   assert.equal((await request(app, `${base}/preview/2`)).body.toString(), 'preview 2');
   assert.equal((await request(app, `${base}/preview/6`)).status, 404);
   assert.equal((await pass(2)).status, 409);

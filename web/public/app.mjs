@@ -26,7 +26,7 @@ async function api(path, options = {}) {
   if (method === 'POST') headers['X-MDS-Request'] = '1';
   const response = await fetch(path, { ...options, method, headers });
   const result = await response.json();
-  if (!response.ok) throw Object.assign(new Error(result.error ?? '����ʧ�ܡ�'), { status: response.status });
+  if (!response.ok) throw Object.assign(new Error(result.error ?? '请求失败。'), { status: response.status });
   return result;
 }
 
@@ -54,11 +54,11 @@ function updateDestinations(printer) {
   if (signature !== destinationOptions) {
     destinationOptions = signature;
     const choices = options.map(({ name, accepting }) => {
-      const option = new Option(accepting ? name : `${name}���ݲ����ã�`, name);
+      const option = new Option(accepting ? name : `${name}（暂不可用）`, name);
       option.disabled = !accepting;
       return option;
     });
-    select.replaceChildren(...choices, new Option('ģ���ӡ������ֽ��', ''));
+    select.replaceChildren(...choices, new Option('模拟打印（不出纸）', ''));
   }
   select.value = printer;
 }
@@ -91,26 +91,26 @@ function setJob(next) {
 }
 
 function formatPages(pages) {
-  if (!pages.length) return '�����ӡ';
-  const text = pages.slice(0, 9).map((page) => page || '�հ�').join(', ');
-  return pages.length > 9 ? `${text} �� �� ${pages.length} ��` : text;
+  if (!pages.length) return '无需打印';
+  const text = pages.slice(0, 9).map((page) => page || '空白').join(', ');
+  return pages.length > 9 ? `${text} … 共 ${pages.length} 面` : text;
 }
 
 function stageText() {
-  if (!job) return 'ѡ�� PDF �󼴿�Ԥ����';
+  if (!job) return '选择 PDF 后即可预览。';
   const simulated = job.mode === 'simulate';
-  const queue = Object.values(job.queue).filter(Boolean).join('��');
+  const queue = Object.values(job.queue).filter(Boolean).join('、');
   switch (job.stage) {
     case 'awaiting-reload':
-      return simulated ? 'ģ���һ����ɡ������ֽʾ��������' :
-        `��һ�����ύ${queue ? `��${queue}��` : ''}�����ȫ����ֽ���ٰ��·���ʾ�Ż�ֽ����`;
-    case 'submitting-first': return '�����ύ��һ�顭';
-    case 'submitting-second': return '�����ύ�ڶ��顭';
+      return simulated ? '模拟第一遍完成。看完放纸示意后继续。' :
+        `第一遍已提交${queue ? `（${queue}）` : ''}。请等全部出纸，再按下方所示放回纸叠。`;
+    case 'submitting-first': return '正在提交第一遍…';
+    case 'submitting-second': return '正在提交第二遍…';
     case 'complete':
-      return simulated ? 'ģ����ɣ�δ�ύ��ӡ����' : `��ӡ�������ύ${queue ? `��${queue}��` : ''}��`;
-    case 'uncertain': return `�� ${job.pendingPass} ���ύ�����ȷ�ϡ���˶� CUPS ���к�ֽ�ţ��ٽ�������`;
-    case 'abandoned': return '���������ѽ�����';
-    default: return destination ? '���ҳ��󼴿ɴ�ӡ��' : 'ģ��ģʽ���������������̡�';
+      return simulated ? '模拟完成，未提交打印任务。' : `打印任务已提交${queue ? `（${queue}）` : ''}。`;
+    case 'uncertain': return `第 ${job.pendingPass} 遍提交结果待确认。请核对 CUPS 队列和纸张，再结束任务。`;
+    case 'abandoned': return '本次任务已结束。';
+    default: return destination ? '检查页序后即可打印。' : '模拟模式用于演练两遍流程。';
   }
 }
 
@@ -120,8 +120,8 @@ function updatePreview() {
   const page = pages[index];
   $('previous').disabled = index === 0;
   $('next').disabled = index >= pages.length - 1;
-  $('page-label').textContent = page === undefined ? '��' : `${index + 1} / ${pages.length}${
-    view === 'original' ? '' : page ? ` �� PDF �� ${page} ҳ` : ' �� �հ�ռλ'}`;
+  $('page-label').textContent = page === undefined ? '—' : `${index + 1} / ${pages.length}${
+    view === 'original' ? '' : page ? ` · PDF 第 ${page} 页` : ' · 空白占位'}`;
   for (const tab of tabs) {
     const value = tab.dataset.view;
     tab.disabled = !job || (value !== 'original' && !job.plan[value].length);
@@ -138,7 +138,7 @@ function updatePreview() {
     image.hidden = true;
     $('retry-preview').hidden = true;
     $('preview-note').hidden = blank;
-    $('preview-note').textContent = '��δѡ���ĵ�';
+    $('preview-note').textContent = '尚未选择文档';
     if (paperChanged) {
       if (blank) viewport.page(210, 297);
       else viewport.page();
@@ -147,10 +147,10 @@ function updatePreview() {
     imageKey = nextImage;
     image.hidden = true;
     viewport.page();
-    image.alt = `PDF �� ${page} ҳ`;
+    image.alt = `PDF 第 ${page} 页`;
     $('retry-preview').hidden = true;
     $('preview-note').hidden = false;
-    $('preview-note').textContent = '���ڼ���Ԥ����';
+    $('preview-note').textContent = '正在加载预览…';
     image.src = endpoint(`/preview/${page}`);
   }
 }
@@ -172,7 +172,7 @@ function render() {
   $('mode').disabled = pending || Boolean(job?.mode);
   $('refresh-printers').disabled = pending;
   updateDestinations(printer);
-  $('file-name').textContent = job ? `${job.name} �� ${job.count} ҳ` : `PDF����� ${config.maxUploadMiB} MiB`;
+  $('file-name').textContent = job ? `${job.name} · ${job.count} 页` : `PDF，最大 ${config.maxUploadMiB} MiB`;
   $('plan').hidden = !job;
   if (job) {
     $('first-pages').textContent = formatPages(job.plan.first);
@@ -182,17 +182,17 @@ function render() {
   $('print').hidden = ['complete', 'abandoned', 'uncertain'].includes(stage);
   $('print').disabled = pending || dirty || !(ready || waiting) || (!simulated && (!available || Boolean(active)));
   $('print').textContent = waiting || stage === 'submitting-second' ?
-    (simulated ? '����ģ��ڶ���' : '�ѷŻأ���ӡ�ڶ���') :
-    (job && !job.plan.second.length ? (simulated ? 'ģ���ӡ' : '��ӡ') : (simulated ? 'ģ���һ��' : '��ӡ��һ��'));
+    (simulated ? '继续模拟第二遍' : '已放回，打印第二遍') :
+    (job && !job.plan.second.length ? (simulated ? '模拟打印' : '打印') : (simulated ? '模拟第一遍' : '打印第一遍'));
   $('abandon').hidden = !(waiting || stage === 'uncertain');
   $('abandon').disabled = pending;
   $('resume').hidden = !active || Boolean(job?.mode);
   $('resume').disabled = pending;
   $('reload').hidden = !job || !failed;
   $('reload').disabled = pending;
-  const printerStatus = active && !job?.mode ? '��̨��ӡ����һ��δ������˫������' :
-    !simulated && !available && (ready || waiting) ? '��̨��ӡ���ݲ����ã���ˢ���б���' :
-    config.printerError && (!job || ready) ? '��ǰ�޷���ȡ CUPS ���У��Կ�ģ���ӡ��' : '';
+  const printerStatus = active && !job?.mode ? '这台打印机有一项未结束的双面任务。' :
+    !simulated && !available && (ready || waiting) ? '这台打印机暂不可用，请刷新列表。' :
+    config.printerError && (!job || ready) ? '当前无法读取 CUPS 队列，仍可模拟打印。' : '';
   $('status').textContent = busy || message || printerStatus || stageText();
   $('status').classList.toggle('error', failed && !busy);
   updatePreview();
@@ -249,7 +249,7 @@ image.addEventListener('error', () => {
   image.hidden = true;
   viewport.page();
   $('preview-note').hidden = false;
-  $('preview-note').textContent = 'Ԥ����ʱ�޷����ء�';
+  $('preview-note').textContent = '预览暂时无法加载。';
   $('retry-preview').hidden = false;
 });
 $('retry-preview').addEventListener('click', () => { imageKey = ''; updatePreview(); });
@@ -261,8 +261,8 @@ $('file').addEventListener('change', () => {
   const [file] = $('file').files;
   $('file').value = '';
   if (!file) return;
-  if (file.size > config.maxUploadMiB * 1024 ** 2) return showError(new Error(`PDF ���� ${config.maxUploadMiB} MiB��`));
-  action('�����ϴ� PDF��', async () => {
+  if (file.size > config.maxUploadMiB * 1024 ** 2) return showError(new Error(`PDF 超过 ${config.maxUploadMiB} MiB。`));
+  action('正在上传 PDF…', async () => {
     setJob(await api('/api/jobs', { method: 'POST', body: file, headers: {
       'Content-Type': 'application/pdf', 'X-File-Name': encodeURIComponent(file.name),
     } }));
@@ -272,7 +272,7 @@ $('range').addEventListener('input', () => { message = ''; failed = false; rende
 $('range-form').addEventListener('submit', (event) => {
   event.preventDefault();
   if (job?.stage !== 'ready' || $('apply').disabled) return;
-  action('���ڸ���ҳ��', async () => {
+  action('正在更新页序…', async () => {
     setJob(await post(endpoint('/range'), { range: $('range').value, revision: job.revision }));
   });
 });
@@ -283,30 +283,30 @@ $('mode').addEventListener('change', () => {
   failed = false;
   render();
 });
-$('refresh-printers').addEventListener('click', () => action('����ˢ�´�ӡ����', refresh));
+$('refresh-printers').addEventListener('click', () => action('正在刷新打印机…', refresh));
 $('print').addEventListener('click', () => {
   if (!job || $('print').disabled) return;
   const pass = job.stage === 'awaiting-reload' ? 2 : 1;
   const printer = pass === 1 ? destination : job.printer;
   const selected = printer ? 'print' : 'simulate';
-  action(selected === 'simulate' ? '����ģ�⡭' : `�����ύ�� ${pass} �顭`, async () => {
+  action(selected === 'simulate' ? '正在模拟…' : `正在提交第 ${pass} 遍…`, async () => {
     setJob(await post(endpoint('/print'), { pass, mode: selected, revision: job.revision, printer: printer || undefined }));
   });
 });
 $('abandon').addEventListener('click', () => {
-  const question = job?.mode === 'print' ? '��������˫�����̣����ύ�� CUPS ����ҵ���ɴ�ӡ��������' : '��������ģ�⣿';
-  if (confirm(question)) action('���ڽ�������', async () => setJob(await post(endpoint('/abandon'))));
+  const question = job?.mode === 'print' ? '结束本次双面流程？已提交到 CUPS 的作业仍由打印机处理。' : '结束本次模拟？';
+  if (confirm(question)) action('正在结束任务…', async () => setJob(await post(endpoint('/abandon'))));
 });
 $('resume').addEventListener('click', () => {
   const active = config.activeJobs.find(({ printer }) => printer === destination);
-  if (active) action('���ڶ�ȡ����', async () => setJob(await api(`/api/jobs/${active.id}`)));
+  if (active) action('正在读取任务…', async () => setJob(await api(`/api/jobs/${active.id}`)));
 });
-$('reload').addEventListener('click', () => action('����ˢ��״̬��', refresh));
+$('reload').addEventListener('click', () => action('正在刷新状态…', refresh));
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden && !busy) refresh().catch(showError);
 });
 
-action('�������ӡ�', async () => {
+action('正在连接…', async () => {
   applyConfig(await api('/api/config'));
   let saved;
   try { saved = localStorage.getItem(key); } catch { /* Storage can be disabled. */ }

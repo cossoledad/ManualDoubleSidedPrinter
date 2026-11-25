@@ -50,11 +50,11 @@ HWND PdfPreview::create(HWND parent, HINSTANCE instance)
     info.hCursor = LoadCursorW(nullptr, IDC_ARROW);
     info.lpszClassName = preview_class;
     if (!RegisterClassW(&info) && GetLastError() != ERROR_CLASS_ALREADY_EXISTS) {
-        windows_error(L"�޷�ע��Ԥ������");
+        windows_error(L"无法注册预览窗口");
     }
-    if (!CreateWindowExW(0, preview_class, L"PDF ҳ��Ԥ��", WS_CHILD | WS_VISIBLE | WS_GROUP,
+    if (!CreateWindowExW(0, preview_class, L"PDF 页面预览", WS_CHILD | WS_VISIBLE | WS_GROUP,
         0, 0, 0, 0, parent, nullptr, instance, this)) {
-        windows_error(L"�޷�����Ԥ������");
+        windows_error(L"无法创建预览窗口");
     }
     return window_;
 }
@@ -314,19 +314,19 @@ void PdfPreview::draw(HDC dc, RECT bounds, int padding) const
         if (bitmap_) {
             draw_bitmap(dc, paper, *bitmap_);
         } else {
-            draw_message(dc, paper, L"�հ�ռλ", RGB(76, 91, 111));
+            draw_message(dc, paper, L"空白占位", RGB(76, 91, 111));
         }
         RestoreDC(dc, state);
         return;
     }
 
-    const wchar_t* message = L"������Ⱦҳ�桭";
+    const wchar_t* message = L"正在渲染页面…";
     if (!requested_.document) {
-        message = L"��δ�� PDF";
+        message = L"尚未打开 PDF";
     } else if (!requested_.page) {
-        message = L"��ǰû�п�Ԥ���Ĵ�ӡҳ";
+        message = L"当前没有可预览的打印页";
     } else if (failed_) {
-        message = L"�޷���Ⱦ��ҳ";
+        message = L"无法渲染此页";
     }
     draw_message(dc, bounds, message, GetSysColor(COLOR_BTNTEXT));
 }

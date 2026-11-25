@@ -78,13 +78,13 @@ export class Jobs {
 
   get(id) {
     const job = this.#jobs.get(id);
-    if (!job) throw new HttpError(404, '����ĵ��ѹ��ڣ�������ѡ�� PDF��');
+    if (!job) throw new HttpError(404, '这份文档已过期，请重新选择 PDF。');
     return job;
   }
 
   async upload(request, name, limit) {
     if (this.#uploads >= 2 || this.#jobs.size + this.#uploads >= 32) {
-      throw new HttpError(429, '�ϴ��ռ�򲢷����Ѵ����ޣ����Ժ����ԡ�');
+      throw new HttpError(429, '上传空间或并发数已达上限，请稍后重试。');
     }
     this.#uploads += 1;
     const id = randomUUID();
@@ -97,21 +97,21 @@ export class Jobs {
         let total = 0;
         for await (const chunk of request.iterator({ destroyOnReturn: false })) {
           total += chunk.length;
-          if (total > limit) throw new HttpError(413, 'PDF ���� 50 MiB��');
+          if (total > limit) throw new HttpError(413, 'PDF 超过 50 MiB。');
           await file.writeFile(chunk);
         }
         const header = Buffer.alloc(1024);
         const { bytesRead } = await file.read(header, 0, header.length, 0);
-        if (!header.subarray(0, bytesRead).includes('%PDF-')) throw new HttpError(422, '��ѡ����Ч�� PDF��');
+        if (!header.subarray(0, bytesRead).includes('%PDF-')) throw new HttpError(422, '请选择有效的 PDF。');
         await file.sync();
       } finally {
         await file.close();
       }
       const count = await this.backend.countPages(this.file(id)).catch((error) => {
-        if (error.code === 'ENOENT') throw new HttpError(503, '�����ȱ�� qpdf��');
-        throw new HttpError(422, '�޷���ȡ PDF�������ļ��Ƿ��𻵻���Ҫ���롣');
+        if (error.code === 'ENOENT') throw new HttpError(503, '服务端缺少 qpdf。');
+        throw new HttpError(422, '无法读取 PDF，请检查文件是否损坏或需要密码。');
       });
-      if (count > 500) throw new HttpError(422, 'PDF ���֧�� 500 ҳ��');
+      if (count > 500) throw new HttpError(422, 'PDF 最多支持 500 页。');
       return await this.#save({ id, name, count, range: '', plan: planPages('', count), revision: 1,
         stage: 'ready', mode: null, printer: null, queue: {}, pendingPass: null });
     } catch (error) {
@@ -123,13 +123,13 @@ export class Jobs {
   }
 
   #enter(job) {
-    if (this.#busy.has(job.id)) throw new HttpError(409, '���������ڴ��������Ժ�');
+    if (this.#busy.has(job.id)) throw new HttpError(409, '该任务正在处理，请稍候。');
     this.#busy.add(job.id);
   }
 
   async range(id, expression, revision) {
     const job = this.get(id);
-    if (job.stage !== 'ready' || job.revision !== revision) throw new HttpError(409, '�ƻ��ѱ仯����ˢ�º����ԡ�');
+    if (job.stage !== 'ready' || job.revision !== revision) throw new HttpError(409, '计划已变化，请刷新后重试。');
     this.#enter(job);
     try {
       let plan;
@@ -142,21 +142,21 @@ export class Jobs {
 
   async print(id, { pass, mode, revision, printer: selected }) {
     const job = this.get(id);
-    if (job.revision !== revision) throw new HttpError(409, 'ҳ���ѱ仯�������º˶Լƻ���');
+    if (job.revision !== revision) throw new HttpError(409, '页码已变化，请重新核对计划。');
     const first = pass === 1;
     const actual = mode === 'print';
     if (actual && job.printer && selected && job.printer !== selected) {
-      throw new HttpError(409, '�����ӡ����ʹ��ͬһ̨��ӡ����');
+      throw new HttpError(409, '两遍打印必须使用同一台打印机。');
     }
     if (first && ['awaiting-reload', 'complete'].includes(job.stage) && job.mode === mode) return job;
     if (!first && job.stage === 'complete' && job.mode === mode && job.plan.second.length) return job;
     if (first ? job.stage !== 'ready' : job.stage !== 'awaiting-reload' || job.mode !== mode) {
-      throw new HttpError(409, '��ǰ�׶��޷��ύ��һ�飬��ˢ������״̬��');
+      throw new HttpError(409, '当前阶段无法提交这一遍，请刷新任务状态。');
     }
     const printer = actual ? (first ? selected : job.printer) : null;
-    if (actual && !printer) throw new HttpError(409, '��ѡ���ӡ����');
+    if (actual && !printer) throw new HttpError(409, '请选择打印机。');
     if (actual && this.#active.has(printer) && this.#active.get(printer) !== id) {
-      throw new HttpError(409, '��̨��ӡ����һ��δ������˫������');
+      throw new HttpError(409, '这台打印机有一项未结束的双面任务。');
     }
 
     this.#enter(job);
@@ -165,10 +165,10 @@ export class Jobs {
     try {
       if (actual) {
         const { printers } = await this.backend.listPrinters().catch(() => {
-          throw new HttpError(503, '�޷���ȡ CUPS ��ӡ�������Ժ�ˢ�¡�');
+          throw new HttpError(503, '无法读取 CUPS 打印机，请稍后刷新。');
         });
         if (!printers.some((entry) => entry.name === printer && entry.accepting)) {
-          throw new HttpError(409, '��ѡ��ӡ��Ŀǰ�޷�������ҵ����ˢ�´�ӡ���б���');
+          throw new HttpError(409, '所选打印机目前无法接收作业，请刷新打印机列表。');
         }
       }
       const pages = first ? job.plan.first : job.plan.second;
@@ -194,7 +194,7 @@ export class Jobs {
         try { await this.#save(job); } catch (persistError) { console.error(persistError.message); }
       }
       if (error instanceof HttpError) throw error;
-      throw new HttpError(503, actual ? 'δ�����ɴ�ӡ�ļ������� PDF �ͷ�����־��' : 'ģ����ʱ�޷���ɡ�');
+      throw new HttpError(503, actual ? '未能生成打印文件，请检查 PDF 和服务日志。' : '模拟暂时无法完成。');
     } finally {
       this.#busy.delete(id);
     }
@@ -203,7 +203,7 @@ export class Jobs {
   async abandon(id) {
     const job = this.get(id);
     if (!['ready', 'awaiting-reload', 'uncertain'].includes(job.stage)) {
-      throw new HttpError(409, '��ǰ�׶��޷���������');
+      throw new HttpError(409, '当前阶段无法结束任务。');
     }
     this.#enter(job);
     try {
