@@ -178,17 +178,18 @@ function render() {
   const stage = job?.stage;
   const ready = stage === 'ready';
   const reusable = reusableSimulation(job);
+  const canEditRange = ready || reusable;
   const waiting = stage === 'awaiting-reload';
   const submitting = stage?.startsWith('submitting-');
   const pending = Boolean(busy || submitting);
-  const dirty = ready && $('range').value.trim() !== job.range;
+  const dirty = canEditRange && $('range').value.trim() !== job.range;
   const locked = activeStages.has(stage);
   const printer = locked ? job.printer ?? '' : destination ?? '';
   const simulated = !printer;
   const active = config.activeJobs.find((entry) => entry.printer === printer && entry.id !== job?.id);
   const available = config.printers.some(({ name, accepting }) => name === printer && accepting);
   $('choose').disabled = pending || waiting || stage === 'uncertain';
-  $('range').disabled = pending || !ready;
+  $('range').disabled = pending || !canEditRange;
   $('apply').disabled = pending || !dirty;
   $('mode').disabled = pending || locked;
   $('refresh-printers').disabled = pending;
@@ -298,7 +299,7 @@ $('file').addEventListener('change', () => {
 $('range').addEventListener('input', () => { message = ''; failed = false; render(); });
 $('range-form').addEventListener('submit', (event) => {
   event.preventDefault();
-  if (job?.stage !== 'ready' || $('apply').disabled) return;
+  if ($('apply').disabled) return;
   action('正在更新页序…', async () => {
     setJob(await post(endpoint('/range'), { range: $('range').value, revision: job.revision }));
   });

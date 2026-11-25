@@ -18,6 +18,14 @@ function holdsPrinter(job) {
   return job.mode === 'print' && retainedStages.has(job.stage);
 }
 
+function reusableSimulation(job) {
+  return job.mode === 'simulate' && ['complete', 'abandoned'].includes(job.stage);
+}
+
+function readyForPrinting(job) {
+  return { ...job, revision: job.revision + 1, stage: 'ready', mode: null, printer: null, queue: {}, pendingPass: null };
+}
+
 async function syncDirectory(path) {
   if (process.platform === 'win32') return;
   const handle = await open(path, 'r');
@@ -129,12 +137,14 @@ export class Jobs {
 
   async range(id, expression, revision) {
     const job = this.get(id);
-    if (job.stage !== 'ready' || job.revision !== revision) throw new HttpError(409, '计划已变化，请刷新后重试。');
+    if (job.revision !== revision || (job.stage !== 'ready' && !reusableSimulation(job))) {
+      throw new HttpError(409, '计划已变化，请刷新后重试。');
+    }
     this.#enter(job);
     try {
       let plan;
       try { plan = planPages(expression, job.count); } catch (error) { throw new HttpError(422, error.message); }
-      return await this.#save({ ...job, range: expression.trim(), plan, revision: revision + 1 });
+      return await this.#save({ ...readyForPrinting(job), range: expression.trim(), plan });
     } finally {
       this.#busy.delete(id);
     }
@@ -142,13 +152,12 @@ export class Jobs {
 
   async restartSimulation(id, revision) {
     const job = this.get(id);
-    if (job.revision !== revision || job.mode !== 'simulate' || !['complete', 'abandoned'].includes(job.stage)) {
+    if (job.revision !== revision || !reusableSimulation(job)) {
       throw new HttpError(409, '当前任务无法重新开始，请刷新后查看状态。');
     }
     this.#enter(job);
     try {
-      return await this.#save({ ...job, revision: revision + 1, stage: 'ready', mode: null,
-        printer: null, queue: {}, pendingPass: null });
+      return await this.#save(readyForPrinting(job));
     } finally {
       this.#busy.delete(id);
     }

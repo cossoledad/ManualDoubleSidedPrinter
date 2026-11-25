@@ -98,6 +98,7 @@ test('upload, preview, simulated and real passes, duplicate requests, recovery a
   assert.equal((await pass(1, 'simulate', 2, second)).body.stage, 'awaiting-reload');
   const restart = (url, revision) => request(app, `${url}/restart`, { revision });
   assert.equal((await restart(second, 2)).status, 409);
+  assert.equal((await request(app, `${second}/range`, { range: '1-2', revision: 2 })).status, 409);
   assert.equal((await pass(2, 'simulate', 2, second)).body.stage, 'complete');
   assert.equal(submitted.length, 2);
   assert.equal((await restart(second, 1)).status, 409);
@@ -109,6 +110,7 @@ test('upload, preview, simulated and real passes, duplicate requests, recovery a
   assert.equal((await pass(1, 'simulate', 2, second)).status, 409);
   assert.equal((await pass(2, 'simulate', 2, second)).status, 409);
   assert.equal((await pass(1, 'print', 3, second, 'other')).body.stage, 'awaiting-reload');
+  assert.equal((await request(app, `${second}/range`, { range: '1-2', revision: 3 })).status, 409);
   assert.equal((await pass(2, 'print', 3, second, 'other')).body.stage, 'complete');
   assert.equal((await restart(second, 3)).status, 409);
   assert.deepEqual(submitted.slice(2), [
@@ -139,15 +141,15 @@ test('upload, preview, simulated and real passes, duplicate requests, recovery a
   assert.deepEqual((await request(app, '/api/config')).body.activeJobs, []);
 });
 
-test('Web controls allow printing the same PDF after simulation and only restore unfinished print work', { timeout: 10_000 }, async (t) => {
+test('Web controls allow changing the page range after simulation and resuming a real print', { timeout: 10_000 }, async (t) => {
   const root = await mkdtemp(join(tmpdir(), 'mds-web-controls-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   const submitted = [];
   const app = await createApplication({ root, backend: {
     async listPrinters() { return { printers: ['default', 'other'].map((name) => ({ name, accepting: true })), defaultPrinter: 'default' }; },
-    async countPages() { return 2; },
-    async preparePass(_folder, _pages, pass) { return pass; },
-    async submitPass(printer, pass) { submitted.push([printer, pass]); return `${printer}-${pass}`; },
+    async countPages() { return 3; },
+    async preparePass(_folder, pages, pass) { return { pages, pass }; },
+    async submitPass(printer, { pages, pass }) { submitted.push([printer, pass, pages]); return `${printer}-${pass}`; },
   } });
   const storage = new Map();
   t.mock.method(globalThis, 'fetch', async (url, { body, headers }) => {
@@ -159,10 +161,13 @@ test('Web controls allow printing the same PDF after simulation and only restore
   class Element extends EventTarget {
     hidden = true;
     value = '';
+    style = {};
+    clientWidth = 640;
+    clientHeight = 480;
     classList = { toggle() {} };
     #text = '';
     get textContent() { return this.#text; }
-    set textContent(value) { this.#text = value; this.dispatchEvent(new Event('render')); }
+    set textContent(value) { this.#text = value; queueMicrotask(() => this.dispatchEvent(new Event('render'))); }
     replaceChildren() {}
     removeAttribute() {}
     toggleAttribute() {}
@@ -212,7 +217,7 @@ test('Web controls allow printing the same PDF after simulation and only restore
     await waitForStatus(pattern);
   }
 
-  const { body: draft } = await request(app, '/api/jobs', numberedPdf(2), { 'x-file-name': 'sample.pdf' });
+  const { body: draft } = await request(app, '/api/jobs', numberedPdf(3), { 'x-file-name': 'sample.pdf' });
   storage.set('mdsprinter-job', draft.id);
   storage.set('mdsprinter-printer', '');
   await boot(/检查页序/);
@@ -221,24 +226,40 @@ test('Web controls allow printing the same PDF after simulation and only restore
   select('');
   await print(/模拟第一遍完成/);
   assert.equal(control('mode').disabled, true);
+  assert.equal(control('range').disabled, true);
   assert.equal(storage.has('mdsprinter-job'), false);
   await print(/模拟完成/);
-  assert.equal(control('file-name').textContent, 'sample.pdf · 2 页');
+  assert.equal(control('file-name').textContent, 'sample.pdf · 3 页');
   assert.equal(storage.has('mdsprinter-job'), false);
   assert.equal(storage.get('mdsprinter-printer'), 'other');
   assert.deepEqual(submitted, []);
 
   select('other');
+  assert.equal(control('range').disabled, false);
   assert.equal(control('print').textContent, '打印第一遍');
+  control('range').value = '2-3';
+  control('range').dispatchEvent(new Event('input'));
+  assert.equal(control('apply').disabled, false);
+  assert.equal(control('print').disabled, true);
+  control('range-form').dispatchEvent(new Event('submit', { cancelable: true }));
+  await waitForStatus(/检查页序/);
+  assert.equal(control('range').value, '2-3');
+  assert.equal(control('first-pages').textContent, '2');
+  assert.equal(control('second-pages').textContent, '3');
+  const oldSimulation = await request(app, `/api/jobs/${draft.id}/print`, {
+    pass: 2, mode: 'simulate', revision: draft.revision,
+  });
+  assert.equal(oldSimulation.status, 409);
   assert.deepEqual(submitted, []);
   await print(/第一遍已提交/);
   await boot(/第一遍已提交/);
   assert.equal(control('mode').disabled, true);
+  assert.equal(control('range').disabled, true);
   assert.equal(control('mode').value, 'other');
   await print(/打印任务已提交/);
-  assert.deepEqual(submitted, [['other', 1], ['other', 2]]);
+  assert.deepEqual(submitted, [['other', 1, [2]], ['other', 2, [3]]]);
 
-  const { body: old } = await request(app, '/api/jobs', numberedPdf(2), { 'x-file-name': 'old.pdf' });
+  const { body: old } = await request(app, '/api/jobs', numberedPdf(3), { 'x-file-name': 'old.pdf' });
   for (const pass of [1, 2]) {
     const result = await request(app, `/api/jobs/${old.id}/print`, { pass, mode: 'simulate', revision: old.revision });
     assert.equal(result.status, 200);
