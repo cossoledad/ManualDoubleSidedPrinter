@@ -1,47 +1,38 @@
 $ErrorActionPreference = 'Stop'
+$PSNativeCommandUseErrorActionPreference = $true
 
 $workspace = Split-Path -Parent $PSScriptRoot
-$publishDir = Join-Path $workspace 'artifacts\publish\win-x64'
-$installerOutDir = Join-Path $workspace 'artifacts\installer'
-$issFile = Join-Path $workspace 'installer\ManualDoubleSidedPrinter.iss'
+$conanOutput = Join-Path $workspace 'build/conan'
+$buildDir = Join-Path $conanOutput 'build'
+$publishDir = Join-Path $workspace 'artifacts/publish/win-x64'
+$installerDir = Join-Path $workspace 'artifacts/installer'
+$installerScript = Join-Path $workspace 'installer/ManualDoubleSidedPrinter.iss'
 
-Write-Host 'Publishing win-x64 release payload...'
-dotnet publish "$workspace\ManualDoubleSidedPrinter.csproj" -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -o "$publishDir"
-
-if (-not (Test-Path $publishDir)) {
-    throw "Publish output directory missing: $publishDir"
+Push-Location $workspace
+try {
+    conan build . -of $conanOutput -s:h build_type=Release -s:h arch=x86_64 `
+        -s:h compiler.cppstd=20 -s:h compiler.runtime=static
+    ctest --test-dir $buildDir -C Release --output-on-failure
+    cmake --install $buildDir --config Release --prefix $publishDir
+} finally {
+    Pop-Location
 }
 
-$possibleIscc = @(
-    "$Env:ChocolateyInstall\bin\ISCC.exe",
-    "$Env:ProgramData\chocolatey\bin\ISCC.exe",
-    "$Env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe",
-    "${Env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
-    "$Env:ProgramFiles\Inno Setup 6\ISCC.exe"
-)
-
-$iscc = $possibleIscc | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
-
+$exe = Get-Item (Join-Path $publishDir 'ManualDoubleSidedPrinter.exe')
+$version = $exe.VersionInfo.ProductVersion
+$iscc = (Get-Command ISCC.exe -ErrorAction SilentlyContinue).Source
 if (-not $iscc) {
-    $isccCommand = Get-Command ISCC.exe -ErrorAction SilentlyContinue
-    if ($isccCommand) {
-        $iscc = $isccCommand.Source
-    }
+    $iscc = @(
+        "$env:LOCALAPPDATA/Programs/Inno Setup 6/ISCC.exe",
+        "${env:ProgramFiles(x86)}/Inno Setup 6/ISCC.exe",
+        "$env:ProgramFiles/Inno Setup 6/ISCC.exe"
+    ) | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
 }
-
 if (-not $iscc) {
-    throw 'Inno Setup 6 is not installed. Please install Inno Setup 6 and retry.'
+    throw 'ISCC.exe was not found. Install Inno Setup 6 to build the installer.'
 }
 
-Write-Host "Using ISCC: $iscc"
-
-if (-not (Test-Path $issFile)) {
-    throw "Installer script missing: $issFile"
-}
-
-New-Item -ItemType Directory -Path $installerOutDir -Force | Out-Null
-
-Write-Host 'Building installer...'
-& $iscc "/DMyAppPublishDir=$publishDir" "/DMyAppOutputDir=$installerOutDir" "$issFile"
-
-Write-Host "Installer created under: $installerOutDir"
+New-Item -ItemType Directory -Path $installerDir -Force | Out-Null
+& $iscc "/DMyAppVersion=$version" "/DMyAppPublishDir=$publishDir" "/DMyAppOutputDir=$installerDir" $installerScript
+Compress-Archive -LiteralPath $exe.FullName `
+    -DestinationPath (Join-Path $installerDir "ManualDoubleSidedPrinter-win-x64-v$version.zip") -Force

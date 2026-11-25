@@ -1,7 +1,8 @@
-bin/
-obj/
+build/
 artifacts/
 .vs/
+CMakeUserPresets.json
+__pycache__/
 *.user
 *.suo
 *.cache

@@ -2,20 +2,13 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": ".NET Launch Avalonia App",
-      "type": "coreclr",
+      "name": "ManualDoubleSidedPrinter (Debug)",
+      "type": "cppvsdbg",
       "request": "launch",
-      "preLaunchTask": "dotnet: build",
-      "program": "${workspaceFolder}/bin/Debug/net8.0-windows/ManualDoubleSidedPrinter.dll",
+      "program": "${workspaceFolder}/build/vscode-debug/ManualDoubleSidedPrinter.exe",
       "cwd": "${workspaceFolder}",
-      "stopAtEntry": false,
-      "console": "internalConsole"
-    },
-    {
-      "name": "Package Installer",
-      "type": "node-terminal",
-      "request": "launch",
-      "command": "powershell -ExecutionPolicy Bypass -File \"${workspaceFolder}/scripts/package-installer.ps1\""
+      "console": "internalConsole",
+      "preLaunchTask": "Build Windows Debug"
     }
   ]
 }

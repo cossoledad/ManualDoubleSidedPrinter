@@ -13,23 +13,23 @@ env:
 
 jobs:
   build-release:
-    runs-on: windows-latest
+    runs-on: windows-2025
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup .NET 8
-        uses: actions/setup-dotnet@v4
+      - uses: actions/setup-python@v5
         with:
-          dotnet-version: 8.0.x
+          python-version: '3.13'
 
-      - name: Install Inno Setup
+      - name: Configure Conan and Inno Setup
         shell: pwsh
         run: |
+          python -m pip install 'conan>=2.28,<3'
+          conan profile detect --force
           choco install innosetup -y
 
-      - name: Build Installer
+      - name: Build, test and package
         shell: pwsh
         run: ./scripts/package-installer.ps1
 
@@ -37,15 +37,8 @@ jobs:
         id: version
         shell: pwsh
         run: |
-          [xml]$xml = Get-Content ./ManualDoubleSidedPrinter.csproj
-          $version = $xml.Project.PropertyGroup.Version
+          $version = (Get-Item ./artifacts/publish/win-x64/ManualDoubleSidedPrinter.exe).VersionInfo.ProductVersion
           "value=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-
-      - name: Create release archive
-        shell: pwsh
-        run: |
-          $zipName = "ManualDoubleSidedPrinter-win-x64-v${{ steps.version.outputs.value }}.zip"
-          Compress-Archive -Path ./artifacts/publish/win-x64/* -DestinationPath "./artifacts/installer/$zipName" -Force
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
