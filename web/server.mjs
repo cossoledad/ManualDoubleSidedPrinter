@@ -121,6 +121,10 @@ export async function createApplication({ root, printer = '', hostname = '', bac
       }
       if (method === 'POST' && page === undefined) {
         if (action === 'abandon') return send(response, 200, publicJob(await jobs.abandon(id)));
+        if (action === 'restart') {
+          const { revision } = await parseJson(request);
+          return send(response, 200, publicJob(await jobs.restartSimulation(id, revision)));
+        }
         if (action === 'range') {
           const { range, revision } = await parseJson(request);
           if (typeof range !== 'string' || range.length > 1024) throw new HttpError(400, '页码格式无效。');

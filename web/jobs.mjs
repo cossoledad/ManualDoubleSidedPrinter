@@ -140,6 +140,20 @@ export class Jobs {
     }
   }
 
+  async restartSimulation(id, revision) {
+    const job = this.get(id);
+    if (job.revision !== revision || job.mode !== 'simulate' || !['complete', 'abandoned'].includes(job.stage)) {
+      throw new HttpError(409, '当前任务无法重新开始，请刷新后查看状态。');
+    }
+    this.#enter(job);
+    try {
+      return await this.#save({ ...job, revision: revision + 1, stage: 'ready', mode: null,
+        printer: null, queue: {}, pendingPass: null });
+    } finally {
+      this.#busy.delete(id);
+    }
+  }
+
   async print(id, { pass, mode, revision, printer: selected }) {
     const job = this.get(id);
     if (job.revision !== revision) throw new HttpError(409, '页码已变化，请重新核对计划。');

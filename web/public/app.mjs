@@ -8,6 +8,7 @@ const viewport = new Viewport($('viewport'), $('preview-paper'), {
 });
 const key = 'mdsprinter-job';
 const printerKey = 'mdsprinter-printer';
+const activeStages = new Set(['awaiting-reload', 'submitting-first', 'submitting-second', 'uncertain']);
 let config = { printers: [], defaultPrinter: '', activeJobs: [], maxUploadMiB: 50 };
 let job = null;
 let destination = null;
@@ -42,7 +43,7 @@ function applyConfig(next) {
   let saved;
   try { saved = localStorage.getItem(printerKey); } catch { /* Storage can be disabled. */ }
   const names = config.printers.filter((printer) => printer.accepting).map((printer) => printer.name);
-  destination = saved === '' || names.includes(saved) ? saved :
+  destination = names.includes(saved) ? saved :
     names.includes(config.defaultPrinter) ? config.defaultPrinter : names[0] ?? '';
 }
 
@@ -69,6 +70,20 @@ function currentPages() {
   return job.plan[view];
 }
 
+function resumable(job) {
+  return job.mode !== 'simulate' && (job.stage === 'ready' || activeStages.has(job.stage));
+}
+
+function reusableSimulation(job) {
+  return job?.mode === 'simulate' && ['complete', 'abandoned'].includes(job.stage);
+}
+
+function forgetJob(id) {
+  try {
+    if (localStorage.getItem(key) === id) localStorage.removeItem(key);
+  } catch { /* Storage can be disabled. */ }
+}
+
 function setJob(next) {
   const isNew = job?.id !== next.id;
   if (isNew || job.revision !== next.revision) $('range').value = next.range;
@@ -83,11 +98,15 @@ function setJob(next) {
   job = next;
   if (job.mode === 'print') {
     config.activeJobs = config.activeJobs.filter(({ id }) => id !== job.id);
-    if (['awaiting-reload', 'submitting-first', 'submitting-second', 'uncertain'].includes(job.stage)) {
+    if (activeStages.has(job.stage)) {
       config.activeJobs.push({ printer: job.printer, id: job.id });
     }
   }
-  try { localStorage.setItem(key, job.id); } catch { /* Reload recovery uses the server's active job as well. */ }
+  if (resumable(job)) {
+    try { localStorage.setItem(key, job.id); } catch { /* Real jobs can also be resumed from the printer. */ }
+  } else {
+    forgetJob(job.id);
+  }
 }
 
 function formatPages(pages) {
@@ -158,18 +177,20 @@ function updatePreview() {
 function render() {
   const stage = job?.stage;
   const ready = stage === 'ready';
+  const reusable = reusableSimulation(job);
   const waiting = stage === 'awaiting-reload';
   const submitting = stage?.startsWith('submitting-');
   const pending = Boolean(busy || submitting);
   const dirty = ready && $('range').value.trim() !== job.range;
-  const printer = job?.mode ? job.printer ?? '' : destination ?? '';
+  const locked = activeStages.has(stage);
+  const printer = locked ? job.printer ?? '' : destination ?? '';
   const simulated = !printer;
   const active = config.activeJobs.find((entry) => entry.printer === printer && entry.id !== job?.id);
   const available = config.printers.some(({ name, accepting }) => name === printer && accepting);
   $('choose').disabled = pending || waiting || stage === 'uncertain';
   $('range').disabled = pending || !ready;
   $('apply').disabled = pending || !dirty;
-  $('mode').disabled = pending || Boolean(job?.mode);
+  $('mode').disabled = pending || locked;
   $('refresh-printers').disabled = pending;
   updateDestinations(printer);
   $('file-name').textContent = job ? `${job.name} · ${job.count} 页` : `PDF，最大 ${config.maxUploadMiB} MiB`;
@@ -179,19 +200,19 @@ function render() {
     $('second-pages').textContent = formatPages(job.plan.second);
   }
   $('guide').hidden = !waiting;
-  $('print').hidden = ['complete', 'abandoned', 'uncertain'].includes(stage);
-  $('print').disabled = pending || dirty || !(ready || waiting) || (!simulated && (!available || Boolean(active)));
+  $('print').hidden = !reusable && ['complete', 'abandoned', 'uncertain'].includes(stage);
+  $('print').disabled = pending || dirty || !(ready || waiting || reusable) || (!simulated && (!available || Boolean(active)));
   $('print').textContent = waiting || stage === 'submitting-second' ?
     (simulated ? '继续模拟第二遍' : '已放回，打印第二遍') :
     (job && !job.plan.second.length ? (simulated ? '模拟打印' : '打印') : (simulated ? '模拟第一遍' : '打印第一遍'));
   $('abandon').hidden = !(waiting || stage === 'uncertain');
   $('abandon').disabled = pending;
-  $('resume').hidden = !active || Boolean(job?.mode);
+  $('resume').hidden = !active || locked;
   $('resume').disabled = pending;
   $('reload').hidden = !job || !failed;
   $('reload').disabled = pending;
-  const printerStatus = active && !job?.mode ? '这台打印机有一项未结束的双面任务。' :
-    !simulated && !available && (ready || waiting) ? '这台打印机暂不可用，请刷新列表。' :
+  const printerStatus = active && !locked ? '这台打印机有一项未结束的双面任务。' :
+    !simulated && !available && (ready || waiting || reusable) ? '这台打印机暂不可用，请刷新列表。' :
     config.printerError && (!job || ready) ? '当前无法读取 CUPS 队列，仍可模拟打印。' : '';
   $('status').textContent = busy || message || printerStatus || stageText();
   $('status').classList.toggle('error', failed && !busy);
@@ -217,7 +238,13 @@ async function refresh() {
   if (job !== previous) return;
   applyConfig(nextConfig);
   if (nextJob) setJob(nextJob);
-  else if (previous) { job = null; view = 'original'; index = 0; }
+  else if (previous) {
+    forgetJob(previous.id);
+    job = null;
+    $('range').value = '';
+    view = 'original';
+    index = 0;
+  }
   render();
 }
 
@@ -278,7 +305,9 @@ $('range-form').addEventListener('submit', (event) => {
 });
 $('mode').addEventListener('change', () => {
   destination = $('mode').value;
-  try { localStorage.setItem(printerKey, destination); } catch { /* Storage can be disabled. */ }
+  if (destination) {
+    try { localStorage.setItem(printerKey, destination); } catch { /* Storage can be disabled. */ }
+  }
   message = '';
   failed = false;
   render();
@@ -290,6 +319,7 @@ $('print').addEventListener('click', () => {
   const printer = pass === 1 ? destination : job.printer;
   const selected = printer ? 'print' : 'simulate';
   action(selected === 'simulate' ? '正在模拟…' : `正在提交第 ${pass} 遍…`, async () => {
+    if (reusableSimulation(job)) setJob(await post(endpoint('/restart'), { revision: job.revision }));
     setJob(await post(endpoint('/print'), { pass, mode: selected, revision: job.revision, printer: printer || undefined }));
   });
 });
@@ -311,7 +341,13 @@ action('正在连接…', async () => {
   let saved;
   try { saved = localStorage.getItem(key); } catch { /* Storage can be disabled. */ }
   if (saved) {
-    try { setJob(await api(`/api/jobs/${encodeURIComponent(saved)}`)); }
-    catch (error) { if (error.status !== 404) throw error; }
+    try {
+      const previous = await api(`/api/jobs/${encodeURIComponent(saved)}`);
+      if (resumable(previous)) setJob(previous);
+      else forgetJob(saved);
+    } catch (error) {
+      if (error.status !== 404) throw error;
+      forgetJob(saved);
+    }
   }
 });
