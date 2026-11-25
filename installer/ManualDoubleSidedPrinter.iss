@@ -1,14 +1,14 @@
-#define MyAppName "ManualDoubleSidedPrinter"
+#define MyAppName "MDSPrinter"
 #define MyAppExeName "ManualDoubleSidedPrinter.exe"
 
 [Setup]
 AppId={{D3B6E4AA-9D1C-4AD9-8FA2-0CD8F9AC7A01}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
-DefaultDirName={autopf}\{#MyAppName}
+DefaultDirName={autopf}\ManualDoubleSidedPrinter
 DefaultGroupName={#MyAppName}
 OutputDir={#MyAppOutputDir}
-OutputBaseFilename=ManualDoubleSidedPrinter-Setup-{#MyAppVersion}
+OutputBaseFilename=MDSPrinter-Setup-{#MyAppVersion}
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern

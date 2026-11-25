@@ -4,7 +4,7 @@ if(POLICY CMP0141)
     cmake_policy(SET CMP0141 NEW)
 endif()
 
-project(ManualDoubleSidedPrinter VERSION 2.0.0 LANGUAGES CXX)
+project(ManualDoubleSidedPrinter VERSION 2.0.1 LANGUAGES CXX)
 
 option(MDSP_BUILD_APP "Build the Windows desktop application" ${WIN32})
 include(CTest)
@@ -39,12 +39,14 @@ if(MDSP_BUILD_APP)
         "${CMAKE_CURRENT_SOURCE_DIR}/src/app.manifest;${CMAKE_CURRENT_SOURCE_DIR}/Assets/app.ico")
     add_executable(ManualDoubleSidedPrinter WIN32
         src/main.cpp
+        src/paper_guide.cpp
         src/pdf_document.cpp
+        src/pdf_preview.cpp
         src/printer.cpp
         "${CMAKE_CURRENT_BINARY_DIR}/app.rc"
     )
     target_compile_definitions(ManualDoubleSidedPrinter PRIVATE UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN)
-    target_link_libraries(ManualDoubleSidedPrinter PRIVATE duplex comctl32 gdi32 ole32 shcore shell32 shlwapi windowsapp winspool)
+    target_link_libraries(ManualDoubleSidedPrinter PRIVATE duplex comctl32 gdi32 ole32 shcore shell32 shlwapi uxtheme windowsapp winspool)
     target_link_options(ManualDoubleSidedPrinter PRIVATE /MANIFEST:NO)
     mdsp_target(ManualDoubleSidedPrinter)
     install(TARGETS ManualDoubleSidedPrinter RUNTIME DESTINATION .)

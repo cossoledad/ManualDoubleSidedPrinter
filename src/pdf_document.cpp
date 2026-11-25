@@ -12,6 +12,7 @@
 
 #include <cmath>
 #include <limits>
+#include <mutex>
 
 namespace mdsp {
 namespace {
@@ -24,6 +25,7 @@ using winrt::Windows::Storage::Streams::IRandomAccessStream;
 } // namespace
 
 struct PdfDocument::Impl {
+    mutable std::mutex mutex;
     IRandomAccessStream source{nullptr};
     pdf::PdfDocument document{nullptr};
     int page_count = 0;
@@ -65,6 +67,7 @@ int PdfDocument::page_count() const noexcept
 
 PageSize PdfDocument::page_size(int page_number) const
 {
+    const std::scoped_lock lock(impl_->mutex);
     const auto size = impl_->page(page_number).Size();
     if (!std::isfinite(size.Width) || !std::isfinite(size.Height) || size.Width <= 0 || size.Height <= 0) {
         throw UserError{L"第 " + std::to_wstring(page_number) + L" 页的尺寸无效。"};
@@ -75,6 +78,7 @@ PageSize PdfDocument::page_size(int page_number) const
 PageBitmap PdfDocument::render_page(int page_number, std::uint32_t width, std::uint32_t height,
                                     bool rotate_clockwise) const
 {
+    const std::scoped_lock lock(impl_->mutex);
     const auto page = impl_->page(page_number);
     InMemoryRandomAccessStream stream;
     pdf::PdfPageRenderOptions options;

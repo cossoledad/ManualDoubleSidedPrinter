@@ -35,4 +35,4 @@ if (-not $iscc) {
 New-Item -ItemType Directory -Path $installerDir -Force | Out-Null
 & $iscc "/DMyAppVersion=$version" "/DMyAppPublishDir=$publishDir" "/DMyAppOutputDir=$installerDir" $installerScript
 Compress-Archive -LiteralPath $exe.FullName `
-    -DestinationPath (Join-Path $installerDir "ManualDoubleSidedPrinter-win-x64-v$version.zip") -Force
+    -DestinationPath (Join-Path $installerDir "MDSPrinter-win-x64-v$version.zip") -Force

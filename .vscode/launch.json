@@ -2,7 +2,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "ManualDoubleSidedPrinter (Debug)",
+      "name": "MDSPrinter (Debug)",
       "type": "cppvsdbg",
       "request": "launch",
       "program": "${workspaceFolder}/build/vscode-debug/ManualDoubleSidedPrinter.exe",
